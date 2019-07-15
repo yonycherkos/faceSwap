@@ -79,9 +79,18 @@ img1Warped = np.array(img2)
 landmark_points1, landmarks_img1 = landmark_detection(image1)
 landmark_points2, landmarks_img2 = landmark_detection(image2)
 
+# Find convex hull
+hull1 = []
+hull2 = []
 
-triangulation_indexes1, triangulation_img1 = calculateDelaunayTriangles(image1, landmark_points1)
-triangulation_indexes2, triangulation_img2 = calculateDelaunayTriangles(image2, landmark_points2)
+hullIndex = cv2.convexHull(np.array(landmark_points2), returnPoints = False)
+
+for i in range(len(hullIndex)):
+    hull1.append(landmark_points1[int(hullIndex[i])])
+    hull2.append(landmark_points2[int(hullIndex[i])])
+
+triangulation_indexes1, triangulation_img1 = calculateDelaunayTriangles(image1, hull1)
+triangulation_indexes2, triangulation_img2 = calculateDelaunayTriangles(image2, hull2)
 
 cv2.imshow("triangulation_img1", triangulation_img1)
 cv2.imshow("triangulation_img2", triangulation_img1)
