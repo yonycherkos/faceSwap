@@ -26,3 +26,13 @@ def landmark_detection(image):
 
 
     return landmark_points, img
+
+
+image = 'images/donald_trump.jpg'
+landmark_points, landmarks_img = landmark_detection(image)
+
+print("landmark_points\n", landmark_points)
+cv2.imshow("triangulation_img1", landmarks_img)
+
+cv2.waitKey(0)
+cv2.destroyAllWindows()
