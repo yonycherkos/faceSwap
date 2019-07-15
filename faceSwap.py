@@ -132,8 +132,21 @@ for i in range(len(hullIndex)):
 triangulation_indexes1, triangulation_img1 = calculateDelaunayTriangles(image1, hull1)
 triangulation_indexes2, triangulation_img2 = calculateDelaunayTriangles(image2, hull2)
 
-cv2.imshow("triangulation_img1", triangulation_img1)
-cv2.imshow("triangulation_img2", triangulation_img1)
+dt = triangulation_indexes2
+# Apply affine transformation to Delaunay triangles
+for i in range(len(dt)):
+    t1 = []
+    t2 = []
+
+    #get points for img1, img2 corresponding to the triangles
+    for j in range(3):
+        t1.append(hull1[dt[i][j]])
+        t2.append(hull2[dt[i][j]])
+
+    warpTriangle(img1, img1Warped, t1, t2)
+
+# cv2.imshow("triangulation_img1", triangulation_img1)
+# cv2.imshow("triangulation_img2", triangulation_img1)
 
 cv2.waitKey(0)
 cv2.destroyAllWindows()
