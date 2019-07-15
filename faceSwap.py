@@ -160,8 +160,9 @@ center = ((r[0]+int(r[2]/2), r[1]+int(r[3]/2)))
 
 warpedImage = cv2.seamlessClone(src, dst, mask, center, cv2.NORMAL_CLONE)
 
-# cv2.imshow("triangulation_img1", triangulation_img1)
-# cv2.imshow("triangulation_img2", triangulation_img1)
+cv2.imshow("triangulation_img1", img1)
+cv2.imshow("triangulation_img2", img2)
+cv2.imshow("warpedImage", warpedImage)
 
 cv2.waitKey(0)
 cv2.destroyAllWindows()
