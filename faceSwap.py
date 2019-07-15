@@ -109,8 +109,11 @@ def warpTriangle(img1, img2, t1, t2) :
     # img2[r2[1]:r2[1]+r2[3], r2[0]:r2[0]+r2[2]] = img2[r2[1]:r2[1]+r2[3], r2[0]:r2[0]+r2[2]] + img2Rect
 
 
-image1 = 'images/ted_cruz.jpg'
-image2 = 'images/donald_trump.jpg'
+image1 = 'images/original_images/ted_cruz.jpg'
+image2 = 'images/original_images/jim-carrey-on-the-car-oh-really-meme.jpg'
+
+image1name = image1.split("/")[2]
+image2name = image2.split("/")[2]
 
 img1 = cv2.imread(image1)
 img2 = cv2.imread(image2)
@@ -129,8 +132,19 @@ for i in range(len(hullIndex)):
     hull1.append(landmark_points1[int(hullIndex[i])])
     hull2.append(landmark_points2[int(hullIndex[i])])
 
-triangulation_indexes1, triangulation_img1 = calculateDelaunayTriangles(image1, hull1)
-triangulation_indexes2, triangulation_img2 = calculateDelaunayTriangles(image2, hull2)
+
+# use the two approachs
+approach = "approach2"
+if approach == "approach1":
+    points1 = hull1
+    points2 = hull2
+else:
+    points1 = landmark_points1
+    points2 = landmark_points2
+
+
+triangulation_indexes1, triangulation_img1 = calculateDelaunayTriangles(image1, points1)
+triangulation_indexes2, triangulation_img2 = calculateDelaunayTriangles(image2, points2)
 
 dt = triangulation_indexes2
 # Apply affine transformation to Delaunay triangles
@@ -140,8 +154,8 @@ for i in range(len(dt)):
 
     #get points for img1, img2 corresponding to the triangles
     for j in range(3):
-        t1.append(hull1[dt[i][j]])
-        t2.append(hull2[dt[i][j]])
+        t1.append(points1[dt[i][j]])
+        t2.append(points2[dt[i][j]])
 
     warpTriangle(img1, img1Warped, t1, t2)
 
@@ -163,7 +177,7 @@ warpedImage = cv2.seamlessClone(src, dst, mask, center, cv2.NORMAL_CLONE)
 cv2.imshow("triangulation_img1", img1)
 cv2.imshow("triangulation_img2", img2)
 cv2.imshow("warpedImage", warpedImage)
-# cv2.imwrite('images/generated_images/approach2/ted_cruz_donald_trump.jpg', warpedImage)
+cv2.imwrite("images/generated_images/" + approach  + "/"+ image2name, warpedImage)
 
 cv2.waitKey(0)
 cv2.destroyAllWindows()
