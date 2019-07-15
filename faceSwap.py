@@ -145,6 +145,21 @@ for i in range(len(dt)):
 
     warpTriangle(img1, img1Warped, t1, t2)
 
+# seamless cloning
+# src and dst
+src = img1Warped
+dst = img2
+
+# calculate mask
+mask = np.zeros(img2.shape, dtype = img2.dtype)
+cv2.fillConvexPoly(mask, np.int32(hull2), (255, 255, 255))
+
+# calculate center dst image where center of src image put
+r = cv2.boundingRect(np.float32([hull2]))
+center = ((r[0]+int(r[2]/2), r[1]+int(r[3]/2)))
+
+warpedImage = cv2.seamlessClone(src, dst, mask, center, cv2.NORMAL_CLONE)
+
 # cv2.imshow("triangulation_img1", triangulation_img1)
 # cv2.imshow("triangulation_img2", triangulation_img1)
 
