@@ -28,11 +28,63 @@ def landmark_detection(image):
     return landmark_points, img
 
 
-image = 'images/donald_trump.jpg'
-landmark_points, landmarks_img = landmark_detection(image)
+def calculateDelaunayTriangles(image, points):
 
-print("landmark_points\n", landmark_points)
-cv2.imshow("triangulation_img1", landmarks_img)
+    img = cv2.imread(image)
+    rect = (0, 0, img.shape[1], img.shape[0])
+
+    subdiv = cv2.Subdiv2D(rect)
+    subdiv.insert(points)
+    triangleList = subdiv.getTriangleList()
+
+    delaunayTri_indexes = []
+
+
+    for t in triangleList:
+
+        pts = []
+        pts.append((t[0], t[1]))
+        pts.append((t[2], t[3]))
+        pts.append((t[4], t[5]))
+
+        pt1 = (t[0], t[1])
+        pt2 = (t[2], t[3])
+        pt3 = (t[4], t[5])
+
+        # draw the Triangulation
+        cv2.line(img, pt1, pt2, (0, 0, 255), 2)
+        cv2.line(img, pt2, pt3, (0, 0, 255), 2)
+        cv2.line(img, pt1, pt3, (0, 0, 255), 2)
+
+        index = []
+        #Get face-points (from 68 face detector) by coordinates
+        for i in range(0, 3):
+            for j in range(0, len(points)):
+                if(pts[i][0] == points[j][0] and pts[i][1] == points[j][1]):
+                    index.append(j)
+        # Three points form a triangle
+        if len(index) == 3:
+            delaunayTri_indexes.append((index[0], index[1], index[2]))
+
+    return delaunayTri_indexes, img
+
+
+image1 = 'images/ted_cruz.jpg'
+image2 = 'images/donald_trump.jpg'
+
+img1 = cv2.imread(image1)
+img2 = cv2.imread(image2)
+img1Warped = np.array(img2)
+
+landmark_points1, landmarks_img1 = landmark_detection(image1)
+landmark_points2, landmarks_img2 = landmark_detection(image2)
+
+
+triangulation_indexes1, triangulation_img1 = calculateDelaunayTriangles(image1, landmark_points1)
+triangulation_indexes2, triangulation_img2 = calculateDelaunayTriangles(image2, landmark_points2)
+
+cv2.imshow("triangulation_img1", triangulation_img1)
+cv2.imshow("triangulation_img2", triangulation_img1)
 
 cv2.waitKey(0)
 cv2.destroyAllWindows()
