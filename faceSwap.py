@@ -4,6 +4,21 @@ import cv2
 import dlib
 
 def landmark_detection(image):
+    """generate facial landmark detection of a give image.
+
+    Parameters
+    ----------
+    image : str
+        image file path.
+
+    Returns
+    -------
+    landmark_points : list
+        return a list of tuple integer of the landmark points.
+    img : numpy array
+        return an image where the landmark points draw on the the image.
+
+    """
 
     # laod an image then convert it to grey scale
     img = cv2.imread(image)
@@ -28,6 +43,23 @@ def landmark_detection(image):
     return landmark_points, img
 
 def applyConvexHull(points1, points2):
+    """find the convex hull of each landmark points.
+
+    Parameters
+    ----------
+    points1 : list
+        a list of tuple integer of landmark points 1.
+    points2 : list
+        a list of tuple integer of landmark points 2.
+
+    Returns
+    -------
+    hull1 : list
+        return a list of tuple integer of convex hull points bounding landmark points 1.
+    hull2 : list
+        return a list of tuple integer of convex hull points bounding landmark points 2.
+    """
+
 
     # Find convex hull of the two landmark points
     hull1 = []
@@ -42,7 +74,60 @@ def applyConvexHull(points1, points2):
     return hull1, hull2
 
 
+def approachs(approach, hull1, hull2, landmark_points1, landmark_points2):
+    """use convexHull or landmark_points to calculate delauney triangulation.
+
+    Parameters
+    ----------
+    approach : str
+        takes either 'approach1' for convexHUll or 'approach2' for landmark points.
+    hull1 : list
+        a list of tuple integer of convex hull points bounding landmark points 1
+    hull2 : type
+        a list of tuple integer of convex hull points bounding landmark points 2
+    landmark_points1 : list
+        a list of tuple integer of landmark points of image1
+    landmark_points2 : list
+        a list of tuple integer of landmark points of image2.
+
+    Returns
+    -------
+    points1 : list
+        a list of tuple integer of either hull 1 or landmark points 1.
+    points2 : list
+        a list of tuple integer of either hull 2 or landmark points 2.
+
+    """
+
+    # use the two approachs
+    if approach == "approach1":
+        points1 = hull1
+        points2 = hull2
+    else:
+        points1 = landmark_points1
+        points2 = landmark_points2
+
+    return points1, points2
+
+
 def calculateDelaunayTriangles(image, points):
+    """calculate delauney triangles of a give points.
+
+    Parameters
+    ----------
+    image : str
+        image file path.
+    points : list
+        landmark points of the image.
+
+    Returns
+    -------
+    delaunayTri_indexes : list
+        return a list tuple integer contain the indexes of the landmark points.
+    img : numpy.ndarray
+        return a image where the triangle draw on it.
+
+    """
 
     img = cv2.imread(image)
     rect = (0, 0, img.shape[1], img.shape[0])
@@ -79,53 +164,115 @@ def calculateDelaunayTriangles(image, points):
     return delaunayTri_indexes, img
 
 def applyAffineTransform(src, srcTri, dstTri, dsize) :
+    """Short summary.
 
-    # Given a pair of triangles, find the affine transform.
+    Parameters
+    ----------
+    src : numpy.ndarray
+        image1 ROI which is to be warped.
+    srcTri : list
+        single triangle points of image1.
+    dstTri : list
+        single triangle points of image2.
+    dsize : tuple
+        size(w, h) of img2 ROI.
+
+    Returns
+    -------
+    dst : numpy.ndarray
+        warped image1 ROI.
+
+    """
+
+    # find the convertion matrix of triangle1 to triangle2
     warpMat = cv2.getAffineTransform( np.float32(srcTri), np.float32(dstTri) )
 
-    # Apply the Affine Transform just found to the src image
+    # warp image1 ROI using the convertion matrix already calculated.
     dst = cv2.warpAffine( src, warpMat, (dsize[0], dsize[1]), None, flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT_101 )
 
     return dst
 
 
 def warpTriangle(img1, img2, t1, t2) :
+    """warp t1 to t2 or convert the shape of triangle1(t1) to look like triangle2(t2).
+       then replace triangle 2 portion of img2 by triangle 1 portion of img1.
+
+    Parameters
+    ----------
+    img1 : numpy.ndarray
+        output of image1 read by opencv.
+    img2 : numpy.ndarray
+        output of image2 read by opencv.
+    t1 : tuple
+        list of tuple of the triangle points.
+    t2 : tuple
+        list of tuple of the triangle points.
+
+    Returns
+    -------
+    does not any value.
+
+    """
 
     # Find bounding rectangle for each triangle
     r1 = cv2.boundingRect(np.array(t1))
     r2 = cv2.boundingRect(np.array(t2))
 
     # Offset points by left top corner of the respective rectangles
-    t1Rect = []
-    t2Rect = []
+    t1_offset = []
+    t2_offset = []
 
     for i in range(3):
-        t1Rect.append(((t1[i][0] - r1[0]),(t1[i][1] - r1[1])))
-        t2Rect.append(((t2[i][0] - r2[0]),(t2[i][1] - r2[1])))
+        t1_offset.append(((t1[i][0] - r1[0]),(t1[i][1] - r1[1])))
+        t2_offset.append(((t2[i][0] - r2[0]),(t2[i][1] - r2[1])))
 
     # Apply warpImage to small rectangular patches
-    img1Rect = img1[r1[1]:r1[1] + r1[3], r1[0]:r1[0] + r1[2]]
+    img1_roi = img1[r1[1]:r1[1] + r1[3], r1[0]:r1[0] + r1[2]]
 
-    size = (r2[2], r2[3])
-    img2Rect = applyAffineTransform(img1Rect, t1Rect, t2Rect, size)
+    size = (r2[2], r2[3]) # size = (w, h) or (x, y)
+    img2_roi = applyAffineTransform(img1_roi, t1_offset, t2_offset, size)
 
     # Get mask by filling triangle
     mask = np.zeros((r2[3], r2[2], 3), dtype = np.float32)
-    cv2.fillConvexPoly(mask, np.int32(t2Rect), (1.0, 1.0, 1.0));
-    img2Rect = img2Rect * mask
+    cv2.fillConvexPoly(mask, np.int32(t2_offset), (1.0, 1.0, 1.0));
+    img2_roi = img2_roi * mask
 
     # Copy triangular region of the rectangular patch to the output image
-    img2[r2[1]:r2[1]+r2[3], r2[0]:r2[0]+r2[2]] = img2[r2[1]:r2[1]+r2[3], r2[0]:r2[0]+r2[2]] * ( (1.0, 1.0, 1.0) - mask ) + img2Rect
+    img2[r2[1]:r2[1]+r2[3], r2[0]:r2[0]+r2[2]] = img2[r2[1]:r2[1]+r2[3], r2[0]:r2[0]+r2[2]] * ( (1.0, 1.0, 1.0) - mask ) + img2_roi
     # img2[r2[1]:r2[1]+r2[3], r2[0]:r2[0]+r2[2]] = img2[r2[1]:r2[1]+r2[3], r2[0]:r2[0]+r2[2]] + img2Rect
 
 def applyWarpTriangle(img1, img2, img2Tri, points1, points2):
+    """compute warp triangles for each triangles of image1 and image2.first find
+       corresponding landmark points of each triangles from the triangulations
+       indexes. then warp each triangle of image1 to image2 by calling created
+       warpTriangle function.
 
-    # Apply affine transformation to Delaunay triangles
+    Parameters
+    ----------
+    img1 : numpy.ndarray
+        output of image1 read by opencv.
+    img2 : numpy.ndarray
+        output of image2 read by opencv.
+    img2Tri : list
+        delaunay triangle indexes of image2.
+    points1 : list
+        landmark points of image1.
+    points2 : list
+        landmark points of image2.
+
+    Returns
+    -------
+    img2 : numpy.ndarray
+        warped img1 copied to img2.
+
+    """
+
+    # iterate through each triangles
     for i in range(len(img2Tri)):
         t1 = []
         t2 = []
 
-        #get points for img1, img2 corresponding to the triangles
+        # iterate through all the three triangle indexes and find t1 and t2
         for j in range(3):
             t1.append(points1[img2Tri[i][j]])
             t2.append(points2[img2Tri[i][j]])
@@ -136,6 +283,23 @@ def applyWarpTriangle(img1, img2, img2Tri, points1, points2):
 
 
 def applySeamlessClone(src, dst, dstPoints):
+    """Short summary.
+
+    Parameters
+    ----------
+    src : type
+        Description of parameter `src`.
+    dst : type
+        Description of parameter `dst`.
+    dstPoints : type
+        Description of parameter `dstPoints`.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
 
     # calculate mask
     mask = np.zeros(dst.shape, dtype = dst.dtype)
@@ -150,20 +314,24 @@ def applySeamlessClone(src, dst, dstPoints):
     return warpedImage
 
 
-def approachs(approach, hull1, hull2, landmark_points1, landmark_points2):
-
-    # use the two approachs
-    if approach == "approach1":
-        points1 = hull1
-        points2 = hull2
-    else:
-        points1 = landmark_points1
-        points2 = landmark_points2
-
-    return points1, points2
-
-
 def showImages(img1, img2, warpedImage):
+    """Short summary.
+
+    Parameters
+    ----------
+    img1 : type
+        Description of parameter `img1`.
+    img2 : type
+        Description of parameter `img2`.
+    warpedImage : type
+        Description of parameter `warpedImage`.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
 
     cv2.imshow("image1", img1)
     cv2.imshow("image2", img2)
@@ -173,11 +341,29 @@ def showImages(img1, img2, warpedImage):
     cv2.destroyAllWindows()
 
 def saveSwappedImage(warpedImage, image2, approach):
+    """Short summary.
+
+    Parameters
+    ----------
+    warpedImage : type
+        Description of parameter `warpedImage`.
+    image2 : type
+        Description of parameter `image2`.
+    approach : type
+        Description of parameter `approach`.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
 
     image2name = image2.split("/")[2]
     cv2.imwrite("images/generated_images/" + approach  + "/"+ image2name, warpedImage)
 
 
+# the images file path
 image1 = 'images/original_images/ted_cruz.jpg'
 image2 = 'images/original_images/26-Nba-memes-13.jpg'
 
@@ -193,12 +379,11 @@ landmark_points2, landmarks_img2 = landmark_detection(image2)
 # find the convex hull bounding the landmark points of the images
 hull1, hull2 = applyConvexHull(landmark_points1, landmark_points2)
 
-""" use approach 1 or approach 2 to calculate delauney triangulation
-    approach1 use the convexhull points to calculate the triangulation points and
-    approach2 use the landmark points to calculate the triangulation points  """
+# use ether approach1 or approach2
 approach = "approach1"
 points1, points2 = approachs(approach, hull1, hull2, landmark_points1, landmark_points2)
 
+# calculate the delauney triangulations
 triangulation_indexes1, triangulation_img1 = calculateDelaunayTriangles(image1, points1)
 triangulation_indexes2, triangulation_img2 = calculateDelaunayTriangles(image2, points2)
 
