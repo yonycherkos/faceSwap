@@ -150,7 +150,7 @@ def applySeamlessClone(src, dst, dstPoints):
     return warpedImage
 
 
-def approachMode(approach, hull1, hull2, landmark_points1, landmark_points2):
+def approachs(approach, hull1, hull2, landmark_points1, landmark_points2):
 
     # use the two approachs
     if approach == "approach1":
@@ -181,17 +181,23 @@ def saveSwappedImage(warpedImage, image2, approach):
 image1 = 'images/original_images/ted_cruz.jpg'
 image2 = 'images/original_images/26-Nba-memes-13.jpg'
 
+# load and read the images
 img1 = cv2.imread(image1)
 img2 = cv2.imread(image2)
 img2_original = np.copy(img2)
 
+# find landmark points of the images
 landmark_points1, landmarks_img1 = landmark_detection(image1)
 landmark_points2, landmarks_img2 = landmark_detection(image2)
 
+# find the convex hull bounding the landmark points of the images
 hull1, hull2 = applyConvexHull(landmark_points1, landmark_points2)
 
+""" use approach 1 or approach 2 to calculate delauney triangulation
+    approach1 use the convexhull points to calculate the triangulation points and
+    approach2 use the landmark points to calculate the triangulation points  """
 approach = "approach1"
-points1, points2 = approachMode(approach, hull1, hull2, landmark_points1, landmark_points2)
+points1, points2 = approachs(approach, hull1, hull2, landmark_points1, landmark_points2)
 
 triangulation_indexes1, triangulation_img1 = calculateDelaunayTriangles(image1, points1)
 triangulation_indexes2, triangulation_img2 = calculateDelaunayTriangles(image2, points2)
