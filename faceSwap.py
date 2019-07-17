@@ -163,6 +163,21 @@ def approachMode(approach, hull1, hull2, landmark_points1, landmark_points2):
     return points1, points2
 
 
+def showImages(img1, img2, warpedImage):
+
+    cv2.imshow("image1", img1)
+    cv2.imshow("image2", img2)
+    cv2.imshow("warpedImage", warpedImage)
+
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+def saveSwappedImage(warpedImage, image2, approach):
+
+    image2name = image2.split("/")[2]
+    cv2.imwrite("images/generated_images/" + approach  + "/"+ image2name, warpedImage)
+
+
 image1 = 'images/original_images/ted_cruz.jpg'
 image2 = 'images/original_images/26-Nba-memes-13.jpg'
 
@@ -186,12 +201,6 @@ img2warped = applyWarpTriangle(img1, img2, triangulation_indexes2, points1, poin
 warpedImage = applySeamlessClone(img2warped, img2_original, points2)
 
 
-cv2.imshow("image1", triangulation_img1)
-cv2.imshow("image2", triangulation_img2)
-cv2.imshow("warpedImage", warpedImage)
+showImages(img1, img2_original, warpedImage)
 
-image2name = image2.split("/")[2]
-cv2.imwrite("images/generated_images/" + approach  + "/"+ image2name, warpedImage)
-
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+saveSwappedImage(warpedImage, image2, approach)
