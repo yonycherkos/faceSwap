@@ -3,8 +3,9 @@ import numpy as np
 import cv2
 import dlib
 
+
 def landmark_detection(image):
-    """generate facial landmark detection of a give image.
+    """Generate facial landmark detection of a give image.
 
     Parameters
     ----------
@@ -39,11 +40,11 @@ def landmark_detection(image):
 
             cv2.circle(img, (x, y), 3, (0, 0, 255), -1)
 
-
     return landmark_points, img
 
+
 def applyConvexHull(points1, points2):
-    """find the convex hull of each landmark points.
+    """Find the convex hull of each landmark points.
 
     Parameters
     ----------
@@ -60,12 +61,11 @@ def applyConvexHull(points1, points2):
         return a list of tuple integer of convex hull points bounding landmark points 2.
     """
 
-
     # Find convex hull of the two landmark points
     hull1 = []
     hull2 = []
 
-    hullIndex = cv2.convexHull(np.array(points2), returnPoints = False)
+    hullIndex = cv2.convexHull(np.array(points2), returnPoints=False)
 
     for i in range(len(hullIndex)):
         hull1.append(points1[int(hullIndex[i])])
@@ -75,7 +75,7 @@ def applyConvexHull(points1, points2):
 
 
 def approachs(approach, hull1, hull2, landmark_points1, landmark_points2):
-    """use convexHull or landmark_points to calculate delauney triangulation.
+    """Use convexHull or landmark_points to calculate delauney triangulation.
 
     Parameters
     ----------
@@ -111,7 +111,7 @@ def approachs(approach, hull1, hull2, landmark_points1, landmark_points2):
 
 
 def calculateDelaunayTriangles(image, points):
-    """calculate delauney triangles of a give points.
+    """Calculate delauney triangles of a give points.
 
     Parameters
     ----------
@@ -138,7 +138,6 @@ def calculateDelaunayTriangles(image, points):
 
     delaunayTri_indexes = []
 
-
     for t in triangleList:
 
         pt1 = (t[0], t[1])
@@ -152,7 +151,7 @@ def calculateDelaunayTriangles(image, points):
         cv2.line(img, pt1, pt3, (0, 0, 255), 2)
 
         index = []
-        #Get face-points (from 68 face detector) by coordinates
+        # Get face-points (from 68 face detector) by coordinates
         for i in range(3):
             for j in range(0, len(points)):
                 if(pts[i][0] == points[j][0] and pts[i][1] == points[j][1]):
@@ -163,8 +162,9 @@ def calculateDelaunayTriangles(image, points):
 
     return delaunayTri_indexes, img
 
-def applyAffineTransform(src, srcTri, dstTri, dsize) :
-    """Short summary.
+
+def applyAffineTransform(src, srcTri, dstTri, dsize):
+    """Warp image1 ROI using the convertion matrix.
 
     Parameters
     ----------
@@ -183,19 +183,17 @@ def applyAffineTransform(src, srcTri, dstTri, dsize) :
         warped image1 ROI.
 
     """
+    # find convertion matrix from triangle1 to triangle2
+    warpMat = cv2.getAffineTransform(np.float32(srcTri), np.float32(dstTri))
 
-    # find the convertion matrix of triangle1 to triangle2
-    warpMat = cv2.getAffineTransform( np.float32(srcTri), np.float32(dstTri) )
-
-    # warp image1 ROI using the convertion matrix already calculated.
-    dst = cv2.warpAffine( src, warpMat, (dsize[0], dsize[1]), None, flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT_101 )
+    dst = cv2.warpAffine(src, warpMat, (dsize[0], dsize[1]), None,
+                         flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT_101)
 
     return dst
 
 
-def warpTriangle(img1, img2, t1, t2) :
-    """warp t1 to t2 or convert the shape of triangle1(t1) to look like triangle2(t2).
-       then replace triangle 2 portion of img2 by triangle 1 portion of img1.
+def warpTriangle(img1, img2, t1, t2):
+    """Warp t1 to t2 then replace triangle 2 portion of img2 by triangle 1 portion of img1.
 
     Parameters
     ----------
@@ -223,26 +221,28 @@ def warpTriangle(img1, img2, t1, t2) :
     t2_offset = []
 
     for i in range(3):
-        t1_offset.append(((t1[i][0] - r1[0]),(t1[i][1] - r1[1])))
-        t2_offset.append(((t2[i][0] - r2[0]),(t2[i][1] - r2[1])))
+        t1_offset.append(((t1[i][0] - r1[0]), (t1[i][1] - r1[1])))
+        t2_offset.append(((t2[i][0] - r2[0]), (t2[i][1] - r2[1])))
 
     # Apply warpImage to small rectangular patches
     img1_roi = img1[r1[1]:r1[1] + r1[3], r1[0]:r1[0] + r1[2]]
 
-    size = (r2[2], r2[3]) # size = (w, h) or (x, y)
+    size = (r2[2], r2[3])  # size = (w, h) or (x, y)
     img2_roi = applyAffineTransform(img1_roi, t1_offset, t2_offset, size)
 
     # Get mask by filling triangle
-    mask = np.zeros((r2[3], r2[2], 3), dtype = np.float32)
-    cv2.fillConvexPoly(mask, np.int32(t2_offset), (1.0, 1.0, 1.0));
+    mask = np.zeros((r2[3], r2[2], 3), dtype=np.float32)
+    cv2.fillConvexPoly(mask, np.int32(t2_offset), (1.0, 1.0, 1.0))
     img2_roi = img2_roi * mask
 
     # Copy triangular region of the rectangular patch to the output image
-    img2[r2[1]:r2[1]+r2[3], r2[0]:r2[0]+r2[2]] = img2[r2[1]:r2[1]+r2[3], r2[0]:r2[0]+r2[2]] * ( (1.0, 1.0, 1.0) - mask ) + img2_roi
+    img2[r2[1]:r2[1] + r2[3], r2[0]:r2[0] + r2[2]] = img2[r2[1]:r2[1] +
+                                                          r2[3], r2[0]:r2[0] + r2[2]] * ((1.0, 1.0, 1.0) - mask) + img2_roi
     # img2[r2[1]:r2[1]+r2[3], r2[0]:r2[0]+r2[2]] = img2[r2[1]:r2[1]+r2[3], r2[0]:r2[0]+r2[2]] + img2Rect
 
+
 def applyWarpTriangle(img1, img2, img2Tri, points1, points2):
-    """compute warp triangles for each triangles of image1 and image2.first find
+    """Compute warp triangles for each triangles of image1 and image2.first find
        corresponding landmark points of each triangles from the triangulations
        indexes. then warp each triangle of image1 to image2 by calling created
        warpTriangle function.
@@ -283,7 +283,7 @@ def applyWarpTriangle(img1, img2, img2Tri, points1, points2):
 
 
 def applySeamlessClone(src, dst, dstPoints):
-    """Short summary.
+    """Crop portion of src image and copy it to dst image.
 
     Parameters
     ----------
@@ -296,18 +296,18 @@ def applySeamlessClone(src, dst, dstPoints):
 
     Returns
     -------
-    type
-        Description of returned object.
+    warpedImage : numpy.nparray
+        return portion image2 replaced by portion of image1.
 
     """
 
     # calculate mask
-    mask = np.zeros(dst.shape, dtype = dst.dtype)
+    mask = np.zeros(dst.shape, dtype=dst.dtype)
     cv2.fillConvexPoly(mask, np.int32(dstPoints), (255, 255, 255))
 
     # calculate center dst image where center of src image put
     r = cv2.boundingRect(np.float32([dstPoints]))
-    center = ((r[0]+int(r[2]/2), r[1]+int(r[3]/2)))
+    center = ((r[0] + int(r[2] / 2), r[1] + int(r[3] / 2)))
 
     warpedImage = cv2.seamlessClone(src, dst, mask, center, cv2.NORMAL_CLONE)
 
@@ -315,21 +315,20 @@ def applySeamlessClone(src, dst, dstPoints):
 
 
 def showImages(img1, img2, warpedImage):
-    """Short summary.
+    """Display image1, image2 and warped image.
 
     Parameters
     ----------
-    img1 : type
-        Description of parameter `img1`.
-    img2 : type
-        Description of parameter `img2`.
-    warpedImage : type
-        Description of parameter `warpedImage`.
+    img1 : numpy.nparray
+        output of image1 read with opencv.
+    img2 : numpy:nparray
+        output of image2 read with opencv.
+    warpedImage : numpy.nparray
+        the swapped image or new value of image2.
 
     Returns
     -------
-    type
-        Description of returned object.
+    deosn't return any value. it just display the images.
 
     """
 
@@ -340,12 +339,13 @@ def showImages(img1, img2, warpedImage):
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
+
 def saveSwappedImage(warpedImage, image2, approach):
-    """Short summary.
+    """Save warped image to images/generated_images with image2 filename.
 
     Parameters
     ----------
-    warpedImage : type
+    warpedImage : numpy.nparray
         Description of parameter `warpedImage`.
     image2 : type
         Description of parameter `image2`.
@@ -354,13 +354,13 @@ def saveSwappedImage(warpedImage, image2, approach):
 
     Returns
     -------
-    type
-        Description of returned object.
+    doesn't display any values. it just save the swapped image.
 
     """
 
     image2name = image2.split("/")[2]
-    cv2.imwrite("images/generated_images/" + approach  + "/"+ image2name, warpedImage)
+    cv2.imwrite("images/generated_images/" +
+                approach + "/" + image2name, warpedImage)
 
 
 # the images file path
@@ -381,13 +381,17 @@ hull1, hull2 = applyConvexHull(landmark_points1, landmark_points2)
 
 # use ether approach1 or approach2
 approach = "approach1"
-points1, points2 = approachs(approach, hull1, hull2, landmark_points1, landmark_points2)
+points1, points2 = approachs(
+    approach, hull1, hull2, landmark_points1, landmark_points2)
 
 # calculate the delauney triangulations
-triangulation_indexes1, triangulation_img1 = calculateDelaunayTriangles(image1, points1)
-triangulation_indexes2, triangulation_img2 = calculateDelaunayTriangles(image2, points2)
+triangulation_indexes1, triangulation_img1 = calculateDelaunayTriangles(
+    image1, points1)
+triangulation_indexes2, triangulation_img2 = calculateDelaunayTriangles(
+    image2, points2)
 
-img2warped = applyWarpTriangle(img1, img2, triangulation_indexes2, points1, points2)
+img2warped = applyWarpTriangle(
+    img1, img2, triangulation_indexes2, points1, points2)
 
 warpedImage = applySeamlessClone(img2warped, img2_original, points2)
 
