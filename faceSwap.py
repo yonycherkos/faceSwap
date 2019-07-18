@@ -1,3 +1,4 @@
+"""This module use for swapping image1 into image2."""
 # import the necessary libraries
 import numpy as np
 import cv2
@@ -5,7 +6,7 @@ import dlib
 
 
 def landmark_detection(image):
-    """Generate facial landmark detection of a give image.
+    """Generate facial landmark points of a give image.
 
     Parameters
     ----------
@@ -242,7 +243,7 @@ def warpTriangle(img1, img2, t1, t2):
 
 
 def applyWarpTriangle(img1, img2, img2Tri, points1, points2):
-    """Compute warp triangles for each triangles of image1 and image2.first find
+    """Compute warp triangles for each triangles of image1 and image2.first find.
        corresponding landmark points of each triangles from the triangulations
        indexes. then warp each triangle of image1 to image2 by calling created
        warpTriangle function.
@@ -363,39 +364,51 @@ def saveSwappedImage(warpedImage, image2, approach):
                 approach + "/" + image2name, warpedImage)
 
 
-# the images file path
-image1 = 'images/original_images/ted_cruz.jpg'
-image2 = 'images/original_images/26-Nba-memes-13.jpg'
+def main():
+    """Warping all up.
 
-# load and read the images
-img1 = cv2.imread(image1)
-img2 = cv2.imread(image2)
-img2_original = np.copy(img2)
+    Returns
+    -------
+    type
+        Doesn't return any value. it just display image1, image2, and the swapped image
 
-# find landmark points of the images
-landmark_points1, landmarks_img1 = landmark_detection(image1)
-landmark_points2, landmarks_img2 = landmark_detection(image2)
+    """
+    # the images file path
+    image1 = 'images/original_images/jim-carrey-on-the-car-oh-really-meme.jpg'
+    image2 = 'images/original_images/ted_cruz.jpg'
 
-# find the convex hull bounding the landmark points of the images
-hull1, hull2 = applyConvexHull(landmark_points1, landmark_points2)
+    # load and read the images
+    img1 = cv2.imread(image1)
+    img2 = cv2.imread(image2)
+    img2_original = np.copy(img2)
 
-# use ether approach1 or approach2
-approach = "approach1"
-points1, points2 = approachs(
-    approach, hull1, hull2, landmark_points1, landmark_points2)
+    # find landmark points of the images
+    landmark_points1, landmarks_img1 = landmark_detection(image1)
+    landmark_points2, landmarks_img2 = landmark_detection(image2)
 
-# calculate the delauney triangulations
-triangulation_indexes1, triangulation_img1 = calculateDelaunayTriangles(
-    image1, points1)
-triangulation_indexes2, triangulation_img2 = calculateDelaunayTriangles(
-    image2, points2)
+    # find the convex hull bounding the landmark points of the images
+    hull1, hull2 = applyConvexHull(landmark_points1, landmark_points2)
 
-img2warped = applyWarpTriangle(
-    img1, img2, triangulation_indexes2, points1, points2)
+    # use ether approach1 or approach2
+    approach = "approach1"
+    points1, points2 = approachs(
+        approach, hull1, hull2, landmark_points1, landmark_points2)
 
-warpedImage = applySeamlessClone(img2warped, img2_original, points2)
+    # calculate the delauney triangulations
+    triangulation_indexes1, triangulation_img1 = calculateDelaunayTriangles(
+        image1, points1)
+    triangulation_indexes2, triangulation_img2 = calculateDelaunayTriangles(
+        image2, points2)
+
+    img2warped = applyWarpTriangle(
+        img1, img2, triangulation_indexes2, points1, points2)
+
+    warpedImage = applySeamlessClone(img2warped, img2_original, points2)
+
+    showImages(img1, img2_original, warpedImage)
+
+    saveSwappedImage(warpedImage, image2, approach)
 
 
-showImages(img1, img2_original, warpedImage)
-
-saveSwappedImage(warpedImage, image2, approach)
+if __name__ == "__main__":
+    main()
