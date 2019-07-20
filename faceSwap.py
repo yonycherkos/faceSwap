@@ -5,7 +5,7 @@ import cv2
 import dlib
 
 
-def landmark_detection(image):
+def landmark_detection(image, returnImage=False):
     """Generate facial landmark points of a give image.
 
     Parameters
@@ -41,10 +41,13 @@ def landmark_detection(image):
 
             cv2.circle(img, (x, y), 3, (0, 0, 255), -1)
 
-    return landmark_points, img
+    if returnImage:
+        return landmark_points, img
+    else:
+        return landmark_points
 
 
-def applyConvexHull(points1, points2):
+def applyConvexHull(landmark_points1, landmark_points2):
     """Find the convex hull of each landmark points.
 
     Parameters
@@ -66,11 +69,18 @@ def applyConvexHull(points1, points2):
     hull1 = []
     hull2 = []
 
-    hullIndex = cv2.convexHull(np.array(points2), returnPoints=False)
+    hullIndex1 = cv2.convexHull(np.array(landmark_points1), returnPoints=False)
+    hullIndex2 = cv2.convexHull(np.array(landmark_points2), returnPoints=False)
+
+    # use the minimum number of convex hull points to avoid index out of bound.
+    if len(hullIndex1) < len(hullIndex2):
+        hullIndex = hullIndex1
+    else:
+        hullIndex = hullIndex2
 
     for i in range(len(hullIndex)):
-        hull1.append(points1[int(hullIndex[i])])
-        hull2.append(points2[int(hullIndex[i])])
+        hull1.append(landmark_points1[int(hullIndex[i])])
+        hull2.append(landmark_points2[int(hullIndex[i])])
 
     return hull1, hull2
 
@@ -111,7 +121,7 @@ def approachs(approach, hull1, hull2, landmark_points1, landmark_points2):
     return points1, points2
 
 
-def calculateDelaunayTriangles(image, points):
+def calculateDelaunayTriangles(image, points, returnImage=False):
     """Calculate delauney triangles of a give points.
 
     Parameters
@@ -161,7 +171,10 @@ def calculateDelaunayTriangles(image, points):
         if len(index) == 3:
             delaunayTri_indexes.append((index[0], index[1], index[2]))
 
-    return delaunayTri_indexes, img
+    if returnImage:
+        return delaunayTri_indexes, img
+    else:
+        return delaunayTri_indexes
 
 
 def applyAffineTransform(src, srcTri, dstTri, dsize):
@@ -203,13 +216,13 @@ def warpTriangle(img1, img2, t1, t2):
     img2 : numpy.ndarray
         output of image2 read by opencv.
     t1 : tuple
-        list of tuple of the triangle points.
+        a single triangle points of image1.
     t2 : tuple
-        list of tuple of the triangle points.
+        a single triangle points of image2.
 
     Returns
     -------
-    does not any value.
+        does not return any value.
 
     """
 
@@ -315,7 +328,7 @@ def applySeamlessClone(src, dst, dstPoints):
     return warpedImage
 
 
-def showImages(img1, img2, warpedImage):
+def showImages(img1, img2, warpedImage, showOriginalImages=False):
     """Display image1, image2 and warped image.
 
     Parameters
@@ -333,15 +346,16 @@ def showImages(img1, img2, warpedImage):
 
     """
 
-    cv2.imshow("image1", img1)
-    cv2.imshow("image2", img2)
+    if showOriginalImages:
+        cv2.imshow("image1", img1)
+        cv2.imshow("image2", img2)
     cv2.imshow("warpedImage", warpedImage)
 
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
 
-def saveSwappedImage(warpedImage, image2, approach):
+def saveSwappedImage(warpedImage, image2, approach, saveImage=False):
     """Save warped image to images/generated_images with image2 filename.
 
     Parameters
@@ -355,13 +369,16 @@ def saveSwappedImage(warpedImage, image2, approach):
 
     Returns
     -------
-    doesn't display any values. it just save the swapped image.
+    return the warped image.
 
     """
 
-    image2name = image2.split("/")[2]
-    cv2.imwrite("images/generated_images/" +
-                approach + "/" + image2name, warpedImage)
+    if saveImage:
+        image2name = image2.split("/")[2]
+        cv2.imwrite("images/generated_images/" +
+                    approach + "/" + image2name, warpedImage)
+
+    return warpedImage
 
 
 def main():
@@ -374,8 +391,8 @@ def main():
 
     """
     # the images file path
-    image1 = 'images/original_images/jim-carrey-on-the-car-oh-really-meme.jpg'
-    image2 = 'images/original_images/ted_cruz.jpg'
+    image1 = 'images/original_images/ted_cruz.jpg'
+    image2 = 'images/original_images/mr-bean.jpg'
 
     # load and read the images
     img1 = cv2.imread(image1)
@@ -383,21 +400,21 @@ def main():
     img2_original = np.copy(img2)
 
     # find landmark points of the images
-    landmark_points1, landmarks_img1 = landmark_detection(image1)
-    landmark_points2, landmarks_img2 = landmark_detection(image2)
+    landmark_points1 = landmark_detection(image1)
+    landmark_points2 = landmark_detection(image2)
 
     # find the convex hull bounding the landmark points of the images
     hull1, hull2 = applyConvexHull(landmark_points1, landmark_points2)
 
-    # use ether approach1 or approach2
+    # use either approach1 or approach2
     approach = "approach1"
     points1, points2 = approachs(
         approach, hull1, hull2, landmark_points1, landmark_points2)
 
     # calculate the delauney triangulations
-    triangulation_indexes1, triangulation_img1 = calculateDelaunayTriangles(
+    triangulation_indexes1 = calculateDelaunayTriangles(
         image1, points1)
-    triangulation_indexes2, triangulation_img2 = calculateDelaunayTriangles(
+    triangulation_indexes2 = calculateDelaunayTriangles(
         image2, points2)
 
     img2warped = applyWarpTriangle(
@@ -405,7 +422,7 @@ def main():
 
     warpedImage = applySeamlessClone(img2warped, img2_original, points2)
 
-    showImages(img1, img2_original, warpedImage)
+    showImages(img1, img2_original, warpedImage, showOriginalImages=True)
 
     saveSwappedImage(warpedImage, image2, approach)
 
