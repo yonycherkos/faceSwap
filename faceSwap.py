@@ -71,12 +71,26 @@ class FaceSwap():
             return faces_landmark_points
 
     def choose_largest_face(self, faces_landmark_points):
+        """choose largest face from all the faces in a given image.
+
+        Parameters
+        ----------
+        faces_landmark_points : list
+            landmark points of all the faces.
+
+        Returns
+        -------
+        largest_face_landmark_points: list
+            return landmark points of the largest face.
+
+        """
 
         size = 0
         faces = np.array(faces_landmark_points).shape[0]
         for face in range(faces):
             boundingRect = cv2.boundingRect(
                 np.array(faces_landmark_points[face]))
+
             face_size = boundingRect[2] * boundingRect[3]
             if face_size > size:
                 size = face_size
@@ -87,7 +101,6 @@ class FaceSwap():
 
     def applyConvexHull(self, landmark_points1, landmark_points2):
         """Find the convex hull of each landmark points.
-
 
         Parameters
         ----------
@@ -434,7 +447,7 @@ class FaceSwap():
         faces_landmark_points1 = self.landmark_detection(self.image1)
         faces_landmark_points2 = self.landmark_detection(self.image2)
 
-        # find landmark points of larger face in an images
+        # find landmark points of the largest face in an image
         landmark_points1 = self.choose_largest_face(faces_landmark_points1)
         landmark_points2 = self.choose_largest_face(faces_landmark_points2)
 
