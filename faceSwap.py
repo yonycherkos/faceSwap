@@ -52,6 +52,7 @@ class FaceSwap():
             'shape_predictor_68_face_landmarks.dat')
 
         faces = detector(img_gray)
+        faces_landmark_points = []
         for face in faces:
             landmarks = predictor(img_gray, face)
             landmark_points = []
@@ -62,13 +63,31 @@ class FaceSwap():
 
                 cv2.circle(img, (x, y), 3, (0, 0, 255), -1)
 
+            faces_landmark_points.append(landmark_points)
+
         if returnImage:
-            return landmark_points, img
+            return faces_landmark_points, img
         else:
-            return landmark_points
+            return faces_landmark_points
+
+    def choose_largest_face(self, faces_landmark_points):
+
+        size = 0
+        faces = np.array(faces_landmark_points).shape[0]
+        for face in range(faces):
+            boundingRect = cv2.boundingRect(
+                np.array(faces_landmark_points[face]))
+            face_size = boundingRect[2] * boundingRect[3]
+            if face_size > size:
+                size = face_size
+                larger_face_index = face
+
+        largest_face_landmark_points = faces_landmark_points[larger_face_index]
+        return largest_face_landmark_points
 
     def applyConvexHull(self, landmark_points1, landmark_points2):
         """Find the convex hull of each landmark points.
+
 
         Parameters
         ----------
@@ -412,8 +431,12 @@ class FaceSwap():
         img2_original = np.copy(img2)
 
         # find landmark points of the images
-        landmark_points1 = self.landmark_detection(self.image1)
-        landmark_points2 = self.landmark_detection(self.image2)
+        faces_landmark_points1 = self.landmark_detection(self.image1)
+        faces_landmark_points2 = self.landmark_detection(self.image2)
+
+        # find landmark points of larger face in an images
+        landmark_points1 = self.choose_largest_face(faces_landmark_points1)
+        landmark_points2 = self.choose_largest_face(faces_landmark_points2)
 
         # find the convex hull bounding the landmark points of the images
         hull1, hull2 = self.applyConvexHull(landmark_points1, landmark_points2)
@@ -443,7 +466,7 @@ class FaceSwap():
 
 # the images file path
 image1 = 'images/original_images/sophia.jpg'
-image2 = 'images/original_images/donald_trump_meme.jpg'
+image2 = 'images/original_images/anchorman.jpg'
 
 faceSwap = FaceSwap(image1, image2)
 faceSwap.faceSwap(showOriginalImages=True)
