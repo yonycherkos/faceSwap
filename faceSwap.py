@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 import dlib
+import os
 
 
 class FaceSwap():
@@ -44,6 +45,11 @@ class FaceSwap():
 
         # laod an image then convert it to grey scale
         img = cv2.imread(image)
+        # convert img to grey scale and consider grey scale images
+        # if len(img.shape) == 3:
+        #     img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        # else:
+        #     img_gray = img
         img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
         # detect the face then find the landmarks
@@ -471,15 +477,22 @@ class FaceSwap():
         warpedImage = self.applySeamlessClone(
             img2warped, img2_original, points2)
 
-        self.showImages(img1, img2_original, warpedImage,
-                        showOriginalImages)
+        #self.showImages(img1, img2_original, warpedImage, showOriginalImages)
 
-        self.saveSwappedImage(warpedImage, self.image2, approach)
+        self.saveSwappedImage(warpedImage, self.image2,
+                              approach, saveImage=True)
 
 
 # the images file path
-image1 = 'images/original_images/sophia.jpg'
-image2 = 'images/original_images/anchorman.jpg'
+image1 = 'images/original_images/white.jpg'
 
-faceSwap = FaceSwap(image1, image2)
-faceSwap.faceSwap(showOriginalImages=True)
+path = "images/original_images/"
+images = os.listdir(path)
+for image in images:
+    image2 = os.path.join(path, image)
+    # check if image 2 is the same as image 1
+    if image2 == image1:
+        continue
+    else:
+        faceSwap = FaceSwap(image1, image2)
+        faceSwap.faceSwap(showOriginalImages=True)
