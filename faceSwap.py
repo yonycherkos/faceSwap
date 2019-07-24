@@ -26,7 +26,7 @@ class FaceSwap():
         self.image1 = image1
         self.image2 = image2
 
-    def landmark_detection(self, image, returnImage=False):
+    def landmark_detection(self, img):
         """Generate facial landmark points of a give image.
 
         Parameters
@@ -38,21 +38,13 @@ class FaceSwap():
         -------
         landmark_points : list
             return a list of tuple integer of the landmark points.
-        img : numpy array
-            return an image where the landmark points draw on the the image.
 
         """
 
-        # laod an image then convert it to grey scale
-        img = cv2.imread(image)
-        # convert img to grey scale and consider grey scale images
-        # if len(img.shape) == 3:
-        #     img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        # else:
-        #     img_gray = img
+        # convert the image to greyscale
         img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-        # detect the face then find the landmarks
+        # detect the face then find the landmarks points
         detector = dlib.get_frontal_face_detector()
         predictor = dlib.shape_predictor(
             'shape_predictor_68_face_landmarks.dat')
@@ -67,14 +59,9 @@ class FaceSwap():
                 y = landmarks.part(n).y
                 landmark_points.append((int(x), int(y)))
 
-                cv2.circle(img, (x, y), 3, (0, 0, 255), -1)
-
             faces_landmark_points.append(landmark_points)
 
-        if returnImage:
-            return faces_landmark_points, img
-        else:
-            return faces_landmark_points
+        return faces_landmark_points
 
     def choose_largest_face(self, faces_landmark_points):
         """choose largest face from all the faces in a given image.
@@ -103,6 +90,7 @@ class FaceSwap():
                 larger_face_index = face
 
         largest_face_landmark_points = faces_landmark_points[larger_face_index]
+
         return largest_face_landmark_points
 
     def applyConvexHull(self, landmark_points1, landmark_points2):
@@ -144,42 +132,7 @@ class FaceSwap():
 
         return hull1, hull2
 
-    def approachs(self, approach, hull1, hull2, landmark_points1, landmark_points2):
-        """Use convexHull or landmark_points to calculate delauney triangulation.
-
-        Parameters
-        ----------
-        approach : str
-            takes either 'approach1' for convexHUll or 'approach2' for landmark points.
-        hull1 : list
-            a list of tuple integer of convex hull points bounding landmark points 1
-        hull2 : type
-            a list of tuple integer of convex hull points bounding landmark points 2
-        landmark_points1 : list
-            a list of tuple integer of landmark points of image1
-        landmark_points2 : list
-            a list of tuple integer of landmark points of image2.
-
-        Returns
-        -------
-        points1 : list
-            a list of tuple integer of either hull 1 or landmark points 1.
-        points2 : list
-            a list of tuple integer of either hull 2 or landmark points 2.
-
-        """
-
-        # use the two approachs
-        if approach == "approach1":
-            points1 = hull1
-            points2 = hull2
-        else:
-            points1 = landmark_points1
-            points2 = landmark_points2
-
-        return points1, points2
-
-    def calculateDelaunayTriangles(self, image, points, returnImage=False):
+    def calculateDelaunayTriangles(self, img, points):
         """Calculate delauney triangles of a give points.
 
         Parameters
@@ -193,12 +146,10 @@ class FaceSwap():
         -------
         delaunayTri_indexes : list
             return a list tuple integer contain the indexes of the landmark points.
-        img : numpy.ndarray
-            return a image where the triangle draw on it.
 
         """
 
-        img = cv2.imread(image)
+        # img = cv2.imread(image)
         rect = (0, 0, img.shape[1], img.shape[0])
 
         subdiv = cv2.Subdiv2D(rect)
@@ -214,11 +165,6 @@ class FaceSwap():
             pt3 = (t[4], t[5])
             pts = [pt1, pt2, pt3]
 
-            # draw the Triangulation
-            cv2.line(img, pt1, pt2, (0, 0, 255), 2)
-            cv2.line(img, pt2, pt3, (0, 0, 255), 2)
-            cv2.line(img, pt1, pt3, (0, 0, 255), 2)
-
             index = []
             # Get face-points (from 68 face detector) by coordinates
             for i in range(3):
@@ -229,10 +175,7 @@ class FaceSwap():
             if len(index) == 3:
                 delaunayTri_indexes.append((index[0], index[1], index[2]))
 
-        if returnImage:
-            return delaunayTri_indexes, img
-        else:
-            return delaunayTri_indexes
+        return delaunayTri_indexes
 
     def applyAffineTransform(self, src, srcTri, dstTri, dsize):
         """Warp image1 ROI using the convertion matrix.
@@ -410,17 +353,13 @@ class FaceSwap():
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
-    def saveSwappedImage(self, warpedImage, image2, approach, saveImage=False):
+    def saveSwappedImage(self, warpedImage):
         """Save warped image to images/generated_images with image2 filename.
 
         Parameters
         ----------
         warpedImage : numpy.nparray
-            Description of parameter `warpedImage`.
-        image2 : type
-            Description of parameter `image2`.
-        approach : type
-            Description of parameter `approach`.
+            Img2 after swapping.
 
         Returns
         -------
@@ -428,15 +367,19 @@ class FaceSwap():
 
         """
 
-        if saveImage:
-            image2name = image2.split("/")[2]
-            cv2.imwrite("images/generated_images/" +
-                        approach + "/" + image2name, warpedImage)
+        image2name = self.image2.split("/")[2]
+        cv2.imwrite("images/generated_images/" + image2name, warpedImage)
 
         return warpedImage
 
-    def faceSwap(self, showOriginalImages=False):
+    def faceSwap(self, showImages=False, saveSwappedImage=False):
         """Warping all up.
+
+        Parameters
+        ----------
+        showOriginalImages : bool
+            An optional argument whether or not to show the original images
+            when displaying the wrapped image.
 
         Returns
         -------
@@ -444,14 +387,16 @@ class FaceSwap():
 
         """
 
-        # load and read the images
+        # read the images
         img1 = cv2.imread(self.image1)
         img2 = cv2.imread(self.image2)
+
+        # save the original image2
         img2_original = np.copy(img2)
 
         # find landmark points of the images
-        faces_landmark_points1 = self.landmark_detection(self.image1)
-        faces_landmark_points2 = self.landmark_detection(self.image2)
+        faces_landmark_points1 = self.landmark_detection(img1)
+        faces_landmark_points2 = self.landmark_detection(img2)
 
         # find landmark points of the largest face in an image
         landmark_points1 = self.choose_largest_face(faces_landmark_points1)
@@ -460,39 +405,38 @@ class FaceSwap():
         # find the convex hull bounding the landmark points of the images
         hull1, hull2 = self.applyConvexHull(landmark_points1, landmark_points2)
 
-        # use either approach1 or approach2
-        approach = "approach1"
-        points1, points2 = self.approachs(
-            approach, hull1, hull2, landmark_points1, landmark_points2)
-
         # calculate the delauney triangulations
         triangulation_indexes1 = self.calculateDelaunayTriangles(
-            self.image1, points1)
+            img1, hull1)
         triangulation_indexes2 = self.calculateDelaunayTriangles(
-            self.image2, points2)
+            img2, hull2)
 
         img2warped = self.applyWarpTriangle(
-            img1, img2, triangulation_indexes2, points1, points2)
+            img1, img2, triangulation_indexes2, hull1, hull2)
 
         warpedImage = self.applySeamlessClone(
-            img2warped, img2_original, points2)
+            img2warped, img2_original, hull2)
 
-        #self.showImages(img1, img2_original, warpedImage, showOriginalImages)
+        if showImages == True:
+            self.showImages(img1, img2_original, warpedImage,
+                            showOriginalImages=True)
 
-        self.saveSwappedImage(warpedImage, self.image2,
-                              approach, saveImage=True)
+        if saveSwappedImage == True:
+            self.saveSwappedImage(warpedImage)
 
 
-# the images file path
-image1 = 'images/original_images/white.jpg'
+if __name__ == '__main__':
+    # the images file path
+    image1 = 'images/original_images/yony.jpg'
 
-path = "images/original_images/"
-images = os.listdir(path)
-for image in images:
-    image2 = os.path.join(path, image)
-    # check if image 2 is the same as image 1
-    if image2 == image1:
-        continue
-    else:
-        faceSwap = FaceSwap(image1, image2)
-        faceSwap.faceSwap(showOriginalImages=True)
+    # loop through and find image2 file path to be used
+    path = "images/original_images/"
+    images = os.listdir(path)
+    for image in images:
+        image2 = os.path.join(path, image)
+        # check if image 2 is the same as image 1
+        if image2 == image1:
+            continue
+        else:
+            faceSwap = FaceSwap(image1, image2)
+            faceSwap.faceSwap(showImages=True, saveSwappedImage=True)

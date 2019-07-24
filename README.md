@@ -20,6 +20,7 @@ For this project you need to install python3 and these libraries
 * opencv
 * dlib
 * The pretrained facial landmark detector model can be downloaded [here](https://github.com/AKSHAYUBHAT/TensorFace/blob/master/openface/models/dlib/shape_predictor_68_face_landmarks.dat).
+
 ```
 
 ## Authors
