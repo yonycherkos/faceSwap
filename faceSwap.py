@@ -479,20 +479,20 @@ class FaceSwap():
 
         #self.showImages(img1, img2_original, warpedImage, showOriginalImages)
 
-        self.saveSwappedImage(warpedImage, self.image2,
-                              approach, saveImage=True)
+        result = cv2.imwrite("output.jpg",warpedImage)
+        return result
 
 
 # the images file path
-image1 = 'images/original_images/white.jpg'
+# image1 = 'images/original_images/white.jpg'
 
-path = "images/original_images/"
-images = os.listdir(path)
-for image in images:
-    image2 = os.path.join(path, image)
-    # check if image 2 is the same as image 1
-    if image2 == image1:
-        continue
-    else:
-        faceSwap = FaceSwap(image1, image2)
-        faceSwap.faceSwap(showOriginalImages=True)
+# path = "images/original_images/"
+# images = os.listdir(path)
+# for image in images:
+#     image2 = os.path.join(path, image)
+#     # check if image 2 is the same as image 1
+#     if image2 == image1:
+#         continue
+#     else:
+#         faceSwap = FaceSwap(image1, image2)
+#         faceSwap.faceSwap(showOriginalImages=True)
