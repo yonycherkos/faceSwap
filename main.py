@@ -1,10 +1,17 @@
 import faceSwap
+import os
 
-# image1 = input("Enter the first image file path: ")
-# image2 = input("Enter the second image file path: ")
+image1 = input("Enter the first image name: ")
+image2 = input("Enter the second image name: ")
 
-image1 = "images/original_images/anchorman.jpg"
-image2 = "images/original_images/yony.jpg"
+path = "images/original_images/"
 
-faceSwap = faceSwap.FaceSwap(image1, image2)
-faceSwap.faceSwap(showImages=True, saveSwappedImage=False)
+image1path = os.path.join(path, image1)
+image2path = os.path.join(path, image2)
+
+img1 = cv2.imread(image1path)
+img2 = cv2.imread(image2path)
+
+faceSwap = faceSwap.FaceSwap()
+faceSwap.faceSwap(img1, img2,
+                  showImages=True, saveSwappedImage=False)

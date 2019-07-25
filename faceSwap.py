@@ -7,7 +7,7 @@ import os
 class FaceSwap():
     """use to swap images"""
 
-    def __init__(self, image1, image2):
+    def __init__(self):
         """Initilizing the class.
 
         Parameters
@@ -23,8 +23,8 @@ class FaceSwap():
 
         """
 
-        self.image1 = image1
-        self.image2 = image2
+        # self.image1 = image1
+        # self.image2 = image2
 
     def landmark_detection(self, img):
         """Generate facial landmark points of a give image.
@@ -372,7 +372,7 @@ class FaceSwap():
 
         return warpedImage
 
-    def faceSwap(self, showImages=False, saveSwappedImage=False):
+    def faceSwap(self, img1, img2, showImages=False, saveSwappedImage=False):
         """Warping all up.
 
         Parameters
@@ -383,13 +383,10 @@ class FaceSwap():
 
         Returns
         -------
-            Doesn't return any value. it just display the swapped image
+        warpedImage: numpy.ndarray
+            The swapped image.
 
         """
-
-        # read the images
-        img1 = cv2.imread(self.image1)
-        img2 = cv2.imread(self.image2)
 
         # save the original image2
         img2_original = np.copy(img2)
@@ -424,19 +421,32 @@ class FaceSwap():
         if saveSwappedImage == True:
             self.saveSwappedImage(warpedImage)
 
+        return warpedImage
+
 
 if __name__ == '__main__':
-    # the images file path
-    image1 = 'images/original_images/yony.jpg'
+    # # the images file path
+    # image1 = 'images/original_images/yony.jpg'
+    #
+    # # loop through and find image2 file path to be used
+    # path = "images/original_images/"
+    # images = os.listdir(path)
+    # for image in images:
+    #     image2 = os.path.join(path, image)
+    #     # check if image 2 is the same as image 1
+    #     if image2 == image1:
+    #         continue
+    #     else:
+    #         faceSwap = FaceSwap(image1, image2)
+    #         warpedImage = faceSwap.faceSwap(
+    #             showImages=True, saveSwappedImage=True)
 
-    # loop through and find image2 file path to be used
-    path = "images/original_images/"
-    images = os.listdir(path)
-    for image in images:
-        image2 = os.path.join(path, image)
-        # check if image 2 is the same as image 1
-        if image2 == image1:
-            continue
-        else:
-            faceSwap = FaceSwap(image1, image2)
-            faceSwap.faceSwap(showImages=True, saveSwappedImage=True)
+    image1 = "images/original_images/yony.jpg"
+    image2 = "images/original_images/anchorman.jpg"
+
+    img1 = cv2.imread(image1)
+    img2 = cv2.imread(image2)
+
+    faceSwap = FaceSwap()
+    warpedImage = faceSwap.faceSwap(img1, img2,
+                                    showImages=True, saveSwappedImage=True)
