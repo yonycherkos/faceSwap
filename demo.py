@@ -1,5 +1,6 @@
 import faceSwap
 import os
+import cv2
 
 image1 = input("Enter the first image name: ")
 image2 = input("Enter the second image name: ")

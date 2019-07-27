@@ -12,14 +12,11 @@ class FaceSwap():
 
         Parameters
         ----------
-        image1 : str
-            Image 1 file path`.
-        image2 : type
-            Image 2 file path.
+        Doesn't take any Parameters
 
         Returns
         -------
-            Assign image1 and image2.
+            Doesn't return any value.
 
         """
 
@@ -36,18 +33,24 @@ class FaceSwap():
 
         Returns
         -------
-        landmark_points : list
-            return a list of tuple integer of the landmark points.
+        faces_landmark_points : list
+            return landmark points for every face in a given image.
 
         """
 
         # convert the image to greyscale
-        img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        try:
+            img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        except Exception as e:
+            raise "image note found. "
 
         # detect the face then find the landmarks points
         detector = dlib.get_frontal_face_detector()
-        predictor = dlib.shape_predictor(
-            'shape_predictor_68_face_landmarks.dat')
+        try:
+            predictor = dlib.shape_predictor(
+                'shape_predictor_68_face_landmarks.dat')
+        except Exception as e:
+            raise "facial landmark points cann't be detected. "
 
         faces = detector(img_gray)
         faces_landmark_points = []
@@ -92,6 +95,69 @@ class FaceSwap():
         largest_face_landmark_points = faces_landmark_points[larger_face_index]
 
         return largest_face_landmark_points
+
+    # left or right face direction
+    def find_face_direction(self, landmark_points):
+        """Find left or right direction of a face.
+
+        Parameters
+        ----------
+        landmark_points : list
+            Facial lanmark points of a given image.
+
+        Returns
+        -------
+        direction: str
+            Direction of the face.
+
+        """
+
+        pt1 = landmark_points[3]
+        pt2 = landmark_points[34]
+        pt3 = landmark_points[15]
+
+        face_width = np.linalg.norm(np.subtract(pt3, pt1))
+        left_dist = np.linalg.norm(np.subtract(pt2, pt1)) / face_width
+        right_dist = np.linalg.norm(np.subtract(pt3, pt2)) / face_width
+
+        if left_dist > right_dist + 0.2:
+            direction = "right"
+        elif right_dist > left_dist + 0.2:
+            direction = "left"
+        else:
+            direction = "front"
+
+        return direction
+
+    def alight_face_direction(self, img1, landmark_points1, landmark_points2):
+        """Align the direction of the face of the two images.
+
+        Parameters
+        ----------
+        img1 : nparray
+            Numpy array of image1.
+        landmark_points1 : list
+            Landmark points of image1`.
+        landmark_points2 : list
+            Landmark points of image2.
+
+        Returns
+        -------
+        img1: nparray
+            The flipped or the original image numpy array.
+
+        """
+
+        img1direction = self.find_face_direction(landmark_points1)
+        img2direction = self.find_face_direction(landmark_points2)
+
+        if (img1direction == "left" and img2direction == "right") or (img1direction == "right" and img2direction != "left"):
+            flipped_img1 = cv2.flip(img1, flipCode=1)
+            img1 = flipped_img1
+        else:
+            img1 = img1
+
+        return img1
 
     def applyConvexHull(self, landmark_points1, landmark_points2):
         """Find the convex hull of each landmark points.
@@ -309,7 +375,7 @@ class FaceSwap():
 
         Returns
         -------
-        warpedImage : numpy.nparray
+        swappedImage : numpy.nparray
             return portion image2 replaced by portion of image1.
 
         """
@@ -322,12 +388,12 @@ class FaceSwap():
         r = cv2.boundingRect(np.float32([dstPoints]))
         center = ((r[0] + int(r[2] / 2), r[1] + int(r[3] / 2)))
 
-        warpedImage = cv2.seamlessClone(
+        swappedImage = cv2.seamlessClone(
             src, dst, mask, center, cv2.NORMAL_CLONE)
 
-        return warpedImage
+        return swappedImage
 
-    def showImages(self, img1, img2, warpedImage, showOriginalImages=False):
+    def showImages(self, img1, img2, swappedImage, showOriginalImages=False):
         """Display image1, image2 and warped image.
 
         Parameters
@@ -336,7 +402,7 @@ class FaceSwap():
             output of image1 read with opencv.
         img2 : numpy:nparray
             output of image2 read with opencv.
-        warpedImage : numpy.nparray
+        swappedImage : numpy.nparray
             the swapped image or new value of image2.
 
         Returns
@@ -348,17 +414,17 @@ class FaceSwap():
         if showOriginalImages:
             cv2.imshow("image1", img1)
             cv2.imshow("image2", img2)
-        cv2.imshow("warpedImage", warpedImage)
+        cv2.imshow("swappedImage", swappedImage)
 
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
-    def saveSwappedImage(self, warpedImage):
+    def saveSwappedImage(self, swappedImage):
         """Save warped image to images/generated_images with image2 filename.
 
         Parameters
         ----------
-        warpedImage : numpy.nparray
+        swappedImage : numpy.nparray
             Img2 after swapping.
 
         Returns
@@ -368,22 +434,30 @@ class FaceSwap():
         """
 
         image2name = self.image2.split("/")[2]
-        cv2.imwrite("images/generated_images/" + image2name, warpedImage)
+        cv2.imwrite("images/generated_images/" + image2name, swappedImage)
 
-        return warpedImage
+        return swappedImage
 
     def faceSwap(self, img1, img2, showImages=False, saveSwappedImage=False):
         """Warping all up.
 
         Parameters
         ----------
+        img1: nparray
+            Readed value of image1.
+
+        img2: nparray
+            Readed value of image2.
+
         showOriginalImages : bool
-            An optional argument whether or not to show the original images
-            when displaying the wrapped image.
+            An optional argument whether or not to show the original images.
+
+        saveSwappedImage : bool
+            An optional argument whether or not to save the swapped image.
 
         Returns
         -------
-        warpedImage: numpy.ndarray
+        swappedImage: numpy.ndarray
             The swapped image.
 
         """
@@ -399,6 +473,14 @@ class FaceSwap():
         landmark_points1 = self.choose_largest_face(faces_landmark_points1)
         landmark_points2 = self.choose_largest_face(faces_landmark_points2)
 
+        # align face direction of the images
+        img1 = self.alight_face_direction(
+            img1, landmark_points1, landmark_points2)
+
+        # recompute lanmark points on the flipped image or new one.
+        faces_landmark_points1 = self.landmark_detection(img1)
+        landmark_points1 = self.choose_largest_face(faces_landmark_points1)
+
         # find the convex hull bounding the landmark points of the images
         hull1, hull2 = self.applyConvexHull(landmark_points1, landmark_points2)
 
@@ -411,42 +493,27 @@ class FaceSwap():
         img2warped = self.applyWarpTriangle(
             img1, img2, triangulation_indexes2, hull1, hull2)
 
-        warpedImage = self.applySeamlessClone(
+        swappedImage = self.applySeamlessClone(
             img2warped, img2_original, hull2)
 
         if showImages == True:
-            self.showImages(img1, img2_original, warpedImage,
+            self.showImages(img1, img2_original, swappedImage,
                             showOriginalImages=True)
 
         if saveSwappedImage == True:
-            self.saveSwappedImage(warpedImage)
+            self.saveSwappedImage(swappedImage)
 
-        return warpedImage
+        return swappedImage
 
 
 if __name__ == '__main__':
-    # # the images file path
-    # image1 = 'images/original_images/yony.jpg'
-    #
-    # # loop through and find image2 file path to be used
-    # path = "images/original_images/"
-    # images = os.listdir(path)
-    # for image in images:
-    #     image2 = os.path.join(path, image)
-    #     # check if image 2 is the same as image 1
-    #     if image2 == image1:
-    #         continue
-    #     else:
-    #         faceSwap = FaceSwap(image1, image2)
-    #         warpedImage = faceSwap.faceSwap(
-    #             showImages=True, saveSwappedImage=True)
 
-    image1 = "images/original_images/yony.jpg"
-    image2 = "images/original_images/anchorman.jpg"
+    image1 = "images/original_images/kalise.jpg"
+    image2 = "images/original_images/black_and_white.jpg"
 
     img1 = cv2.imread(image1)
     img2 = cv2.imread(image2)
 
     faceSwap = FaceSwap()
-    warpedImage = faceSwap.faceSwap(img1, img2,
-                                    showImages=True, saveSwappedImage=True)
+    swappedImage = faceSwap.faceSwap(img1, img2,
+                                     showImages=True, saveSwappedImage=False)

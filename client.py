@@ -1,46 +1,68 @@
 
-# step-1: imread
-# step-2: img -> str(encode)
-# step-3: send
-# step-4: recv
-
 import requests
 import json
 import base64
+import tempfile
+import cv2
+
+base_image_path = "images/original_images/yony.jpg"
+meme_image_path = "images/original_images/anchorman.jpg"
 
 
-def image_encoding(image):
-    with open(image, 'rb') as file:
-        img = file.read()
-        encoded_img = base64.b64encode(img).decode('utf-8')
+# def image_to_str(image_path):
+#     with open(image_path, 'rb') as f:
+#         img = f.read()
+#         image_64 = base64.b64encode(img).decode('utf-8')
+#
+#     binary_image = base64.b64decode(image_64)
+#     return binary_image
 
-    binary_img = base64.b64decode(encoded_img)
+def img_to_str_encoder(image_path):
+    with open(image_path, 'rb') as f:
+        img = f.read()
+        img_base64 = base64.b64encode(img)
 
-    return binary_img
-
-
-def send_image(url, image1, image2):
-    # url = "http://localhost:5000/"
-
-    # read and encode an images
-    binary_img1 = image_encoding(image1)
-    binary_img2 = image_encoding(image2)
-
-    # send the encoded images
-    payload = {"encoded_img1": binary_img1, "encoded_img2": binary_img2}
-    requests.post(url, payload)
+    return img_base64
 
 
-def recieve_image(url):
+def str_to_img_decoder(img_base64):
+
+    img = base64.b64decode(img_base64)
+
+    return img
+
+
+# def save_image(image, name, image_ext):
+#     file_name = name + image_ext
+#
+#     f = tempfile.NamedTemporaryFile()
+#     f.write(binary_image)
+#
+#     img = cv2.imread(f.name)
+#     return result, img
+
+
+def send_request():
+    url = 'http://127.0.0.1:5000/image-swap/'
+
+    base_img_b64 = img_to_str_encoder(base_image_path)
+    meme_img_b64 = img_to_str_encoder(meme_image_path)
+
+    files = {'base_img_b64': base_img_b64,
+             'meme_img_b64': meme_img_b64}
+    response = requests.post(url, files=json.dumps(files))
+    print(type(response))
+
+
+def recieve_request():
+    url = 'http://127.0.0.1:5000/image-swap/'
 
     response = requests.get(url)
 
-    return response.content
+    return str_to_img_decoder(response.content)
 
 
 if __name__ == "__main__":
 
-    url = "http://127.0.0.1:5000/"
-    image1 = "/home/yonathan/Documents/projects/faceSwap/images/original_images/yony.jpg"
-    image2 = "/home/yonathan/Documents/projects/faceSwap/images/original_images/anchorman.jpg"
-    send_image(url, image1, image2)
+    send_request()
+    # swappedImage = recieve_request()
