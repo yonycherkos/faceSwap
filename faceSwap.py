@@ -44,7 +44,7 @@ class FaceSwap():
         """
 
         # laod an image then convert it to grey scale
-        img = cv2.imread(image)
+        img = image
         # convert img to grey scale and consider grey scale images
         # if len(img.shape) == 3:
         #     img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -55,7 +55,7 @@ class FaceSwap():
         # detect the face then find the landmarks
         detector = dlib.get_frontal_face_detector()
         predictor = dlib.shape_predictor(
-            'shape_predictor_68_face_landmarks.dat')
+            '../shape_predictor_68_face_landmarks.dat')
 
         faces = detector(img_gray)
         faces_landmark_points = []
@@ -198,7 +198,7 @@ class FaceSwap():
 
         """
 
-        img = cv2.imread(image)
+        img = image
         rect = (0, 0, img.shape[1], img.shape[0])
 
         subdiv = cv2.Subdiv2D(rect)
@@ -445,8 +445,8 @@ class FaceSwap():
         """
 
         # load and read the images
-        img1 = cv2.imread(self.image1)
-        img2 = cv2.imread(self.image2)
+        img1 = self.image1
+        img2 = self.image2
         img2_original = np.copy(img2)
 
         # find landmark points of the images
@@ -479,8 +479,7 @@ class FaceSwap():
 
         #self.showImages(img1, img2_original, warpedImage, showOriginalImages)
 
-        result = cv2.imwrite("output.jpg",warpedImage)
-        return result
+        return warpedImage
 
 
 # the images file path
