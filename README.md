@@ -9,7 +9,7 @@ part of the second one. if there are multiple faces in one of the images, it use
 For getting start with this project
 * select two image from the given one or your own images.
 * then give the path to the images you selected.
-* finally run the faceSwap.py python script.
+* finally run the demo.py python script and enter image name from images/original_image.
 
 ## Prerequisites
 
