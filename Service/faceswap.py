@@ -32,8 +32,8 @@ def face_swap(input_image,meme_image):
     inputImage = np.array(byte_to_img(input_image))
     memeImage = np.array(byte_to_img(meme_image))
 
-    fs = FaceSwap(inputImage,memeImage)
-    result = fs.faceSwap()
+    fs = FaceSwap()
+    result = fs.faceSwap(inputImage,memeImage)
     cv2.imwrite("output.jpg",result)
 
     with open("output.jpg", 'rb') as f:
