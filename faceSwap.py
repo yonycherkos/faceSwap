@@ -38,7 +38,7 @@ class FaceSwap():
 
         """
 
-        # convert the image to greyscale
+        # convert the image to greyscaleprint("land here")
         try:
             img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         except Exception as e:
@@ -461,11 +461,13 @@ class FaceSwap():
             The swapped image.
 
         """
-        # print("types",type(img1),type(img2))
+
         # save the original image2
+
         img2_original = np.copy(img2)
 
         # find landmark points of the images
+
         faces_landmark_points1 = self.landmark_detection(img1)
         faces_landmark_points2 = self.landmark_detection(img2)
 
@@ -476,7 +478,7 @@ class FaceSwap():
         # align face direction of the images
         img1 = self.alight_face_direction(
             img1, landmark_points1, landmark_points2)
-        print("hello")
+
         # recompute lanmark points on the flipped image or new one.
         faces_landmark_points1 = self.landmark_detection(img1)
         landmark_points1 = self.choose_largest_face(faces_landmark_points1)
@@ -502,7 +504,7 @@ class FaceSwap():
 
         if saveSwappedImage == True:
             self.saveSwappedImage(swappedImage)
-        print("RES",swappedImage)
+
         return swappedImage
 
 

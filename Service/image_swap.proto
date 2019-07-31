@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+message ImageFileIn {
+	string input_image = 1;
+    string meme_image = 2;
+}
+
+message ImageFileOut {
+	string image_out = 1;
+}
+
+service FaceSwap {
+	rpc faceSwap(ImageFileIn) returns (ImageFileOut) {}
+}
