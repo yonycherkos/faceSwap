@@ -1,15 +1,14 @@
 # FaceSwap
 
-One Paragraph of project description goes her
-This is face swapping project with opencv python. It takes two images as input then replace the face part of the first image into the face face
-part of the second one. if there are multiple faces in one of the images, it use the largest face.
+
+This is face swapping project with opencv python. It takes two images as input then replace the face part of the first image into the face face part of the second one. if there are multiple faces in one of the images, it use the largest face.
 
 ## Getting Started
 
 For getting start with this project
 * select two image from the given one or your own images.
 * then give the path to the images you selected.
-* finally run the faceSwap.py python script.
+* finally run the demo.py python script and enter image name from images/original_image.
 
 ## Prerequisites
 
