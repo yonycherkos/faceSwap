@@ -461,7 +461,7 @@ class FaceSwap():
             The swapped image.
 
         """
-
+        # print("types",type(img1),type(img2))
         # save the original image2
         img2_original = np.copy(img2)
 
@@ -476,7 +476,7 @@ class FaceSwap():
         # align face direction of the images
         img1 = self.alight_face_direction(
             img1, landmark_points1, landmark_points2)
-
+        print("hello")
         # recompute lanmark points on the flipped image or new one.
         faces_landmark_points1 = self.landmark_detection(img1)
         landmark_points1 = self.choose_largest_face(faces_landmark_points1)
@@ -502,7 +502,7 @@ class FaceSwap():
 
         if saveSwappedImage == True:
             self.saveSwappedImage(swappedImage)
-
+        print("RES",swappedImage)
         return swappedImage
 
 
