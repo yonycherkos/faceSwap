@@ -1,0 +1,6 @@
+shape_predictor_68_face_landmarks.dat
+/.idea
+/__pycache__
+/Service/test.ipynb
+/Service/.ipynb_checkpoints
+/Service/__pycache__
