@@ -1,3 +1,4 @@
+import argparse
 import grpc
 from concurrent import futures
 import time
@@ -23,7 +24,6 @@ parent_dir = current_dir[:current_dir.rfind(os.path.sep)]
 
 sys.path.insert(0, parent_dir)
 
-import argparse
 
 parser = argparse.ArgumentParser()
 
@@ -37,16 +37,18 @@ class ClientTest():
         stub = image_swap_pb2_grpc.FaceSwapStub(channel)
         return stub
 
-    def send_request(self, stub, image_input,meme_input):
-        images = image_swap_pb2.ImageFileIn(input_image=image_input,meme_image=meme_input)
+    def send_request(self, stub, image_input, meme_input):
+        images = image_swap_pb2.ImageFileIn(
+            input_image=image_input, meme_image=meme_input)
 
         response = stub.faceSwap(images)
 
         return response
 
-    def byte_to_img(self,input_image):
+    def byte_to_img(self, input_image):
         binary_image = base64.b64decode(input_image)
-        file_format = magic.from_buffer(base64.b64decode(input_image), mime=True).split('/')[1]
+        file_format = magic.from_buffer(
+            base64.b64decode(input_image), mime=True).split('/')[1]
 
         f = tempfile.NamedTemporaryFile(suffix='.jpg')
         f.write(binary_image)
@@ -68,8 +70,8 @@ if __name__ == "__main__":
 
     client_test = ClientTest()
     stub = client_test.open_grpc_channel()
-    response = client_test.send_request(stub,image_input=image,meme_input=meme)
-
+    response = client_test.send_request(
+        stub, image_input=image, meme_input=meme)
 
     image = client_test.byte_to_img(response.image_out)
     # image.save('a.jpg')
