@@ -1,3 +1,10 @@
+import cv2
+import magic
+import tempfile
+import base64
+import numpy as np
+from PIL import Image
+from faceSwap import FaceSwap
 from inspect import getsourcefile
 import os.path
 import sys
@@ -8,18 +15,11 @@ parent_dir = current_dir[:current_dir.rfind(os.path.sep)]
 
 sys.path.insert(0, parent_dir)
 
-from faceSwap import FaceSwap
-from PIL import Image
-import numpy as np
-import base64
-import tempfile
-import magic
-import cv2
-
 
 def byte_to_img(input_image):
     binary_image = base64.b64decode(input_image)
-    file_format = magic.from_buffer(base64.b64decode(input_image), mime=True).split('/')[1]
+    file_format = magic.from_buffer(
+        base64.b64decode(input_image), mime=True).split('/')[1]
 
     f = tempfile.NamedTemporaryFile(suffix='*.' + str(file_format))
     f.write(binary_image)
@@ -28,7 +28,7 @@ def byte_to_img(input_image):
     return image
 
 
-def face_swap(input_image,meme_image):
+def face_swap(input_image, meme_image):
     inputImage = np.array(byte_to_img(input_image))
     memeImage = np.array(byte_to_img(meme_image))
 
@@ -36,8 +36,8 @@ def face_swap(input_image,meme_image):
     memeImage = cv2.cvtColor(memeImage, cv2.COLOR_BGR2RGB)
 
     fs = FaceSwap()
-    result = fs.faceSwap(inputImage,memeImage)
-    cv2.imwrite("output.jpg",result)
+    result = fs.faceSwap(inputImage, memeImage, mode="apply_on_all")
+    cv2.imwrite("output.jpg", result)
 
     with open("output.jpg", 'rb') as f:
         img = f.read()
