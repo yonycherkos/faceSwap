@@ -8,12 +8,18 @@ from faceSwap import FaceSwap
 from inspect import getsourcefile
 import os.path
 import sys
+import io
 
 current_path = os.path.abspath(getsourcefile(lambda: 0))
 current_dir = os.path.dirname(current_path)
 parent_dir = current_dir[:current_dir.rfind(os.path.sep)]
 
 sys.path.insert(0, parent_dir)
+
+def np_img_from_base64(image_base64):
+    img_bytes = base64.b64decode(image_base64)
+    image = Image.open(io.BytesIO(img_bytes))
+    return np.array(image)
 
 
 def byte_to_img(input_image):
@@ -29,8 +35,8 @@ def byte_to_img(input_image):
 
 
 def face_swap(input_image, meme_image):
-    inputImage = np.array(byte_to_img(input_image))
-    memeImage = np.array(byte_to_img(meme_image))
+    inputImage = np_img_from_base64(input_image)
+    memeImage = np_img_from_base64(meme_image)
 
     inputImage = cv2.cvtColor(inputImage, cv2.COLOR_BGR2RGB)
     memeImage = cv2.cvtColor(memeImage, cv2.COLOR_BGR2RGB)
