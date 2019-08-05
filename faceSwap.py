@@ -3,6 +3,10 @@ import cv2
 import dlib
 import os
 
+# type of modes to apply face swapping
+ALL_FACE_MODE = 'apply_on_all'
+LARGEST_FACE_MODE = 'choose_largest_face'
+
 
 class FaceSwap():
     """use to swap images"""
@@ -508,7 +512,7 @@ class FaceSwap():
         """
         # if mode == "choose_largest_face":
 
-        if mode == "apply_on_all":
+        if mode == ALL_FACE_MODE:
             faces = np.array(faces_landmark_points2).shape[0]
             for face in range(faces):
                 landmark_points1 = faces_landmark_points1[0]
