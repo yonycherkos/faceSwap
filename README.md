@@ -24,7 +24,7 @@ For this project you need to install python3 and these libraries
 
 ## Authors
 
-* **yonathan cherkos**
+* **yonathan cherkos, Israel Abebe, and Yared Taddese**
 
 ## License
 
