@@ -37,9 +37,9 @@ def face_swap(input_image, meme_image):
 
     fs = FaceSwap()
     result = fs.faceSwap(inputImage, memeImage, mode="apply_on_all")
-    cv2.imwrite("output.jpg", result)
+    cv2.imwrite("images/generated_images/output.jpg", result)
 
-    with open("output.jpg", 'rb') as f:
+    with open("images/generated_images/output.jpg", 'rb') as f:
         img = f.read()
         image = base64.b64encode(img).decode('utf-8')
 

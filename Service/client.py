@@ -61,10 +61,10 @@ class ClientTest():
 
 
 if __name__ == "__main__":
-    with open('image.jpg', 'rb') as f:
+    with open('images/image.jpg', 'rb') as f:
         img = f.read()
         image = base64.b64encode(img).decode('utf-8')
-    with open('meme.jpg', 'rb') as f:
+    with open('images/meme.jpg', 'rb') as f:
         img_m = f.read()
         meme = base64.b64encode(img_m).decode('utf-8')
 

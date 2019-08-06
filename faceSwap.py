@@ -1,7 +1,6 @@
 import numpy as np
 import cv2
 import dlib
-import os
 
 
 class FaceSwap():
@@ -41,18 +40,21 @@ class FaceSwap():
         # convert the image to greyscaleprint("land here")
         try:
             img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        except Exception as e:
-            raise "image note found. "
+        except Exception:
+            raise ValueError("image note found. ")
 
         # detect the face then find the landmarks points
         detector = dlib.get_frontal_face_detector()
         try:
             predictor = dlib.shape_predictor(
                 'shape_predictor_68_face_landmarks.dat')
-        except Exception as e:
-            raise "facial landmark points cann't be detected. "
+        except Exception:
+            raise FileNotFoundError("the dlib model can't be found. ")
 
-        faces = detector(img_gray)
+        try:
+            faces = detector(img_gray)
+        except Exception:
+            raise ValueError("facial landmark points cann't be detected. ")
         faces_landmark_points = []
         for face in faces:
             landmarks = predictor(img_gray, face)
@@ -317,8 +319,8 @@ class FaceSwap():
         img2_roi = img2_roi * mask
 
         # Copy triangular region of the rectangular patch to the output image
-        img2[r2[1]:r2[1] + r2[3], r2[0]:r2[0] + r2[2]] = img2[r2[1]:r2[1] +
-                                                              r2[3], r2[0]:r2[0] + r2[2]] * ((1.0, 1.0, 1.0) - mask) + img2_roi
+        img2[r2[1]:r2[1] + r2[3], r2[0]:r2[0] + r2[2]] = img2[r2[1]:r2[1] + r2[3],
+                                                              r2[0]:r2[0] + r2[2]] * ((1.0, 1.0, 1.0) - mask) + img2_roi
         # img2[r2[1]:r2[1]+r2[3], r2[0]:r2[0]+r2[2]] = img2[r2[1]:r2[1]+r2[3], r2[0]:r2[0]+r2[2]] + img2Rect
 
     def applyWarpTriangle(self, img1, img2, img2Tri, points1, points2):
@@ -465,8 +467,8 @@ class FaceSwap():
             landmark_points1, landmark_points2)
 
         # calculate the delauney triangulations
-        triangulation_indexes1 = self.calculateDelaunayTriangles(
-            img1, hull1)
+        # triangulation_indexes1 = self.calculateDelaunayTriangles(
+        #     img1, hull1)
         triangulation_indexes2 = self.calculateDelaunayTriangles(
             img2, hull2)
 
@@ -559,11 +561,11 @@ class FaceSwap():
         swappedImage = self.chooseModes(
             img1, img2, img2_original, faces_landmark_points1, faces_landmark_points2, mode)
 
-        if showImages == True:
+        if showImages is True:
             self.showImages(img1, img2_original, swappedImage,
                             showOriginalImages=True)
 
-        if saveSwappedImage == True:
+        if saveSwappedImage is True:
             self.saveSwappedImage(swappedImage)
 
         return swappedImage
@@ -578,5 +580,5 @@ if __name__ == '__main__':
     img2 = cv2.imread(image2)
 
     faceSwap = FaceSwap()
-    swappedImage = faceSwap.faceSwap(img1, img2, mode="choose_largest_face",
+    swappedImage = faceSwap.faceSwap(img1, img2, mode="apply_on_all",
                                      showImages=True, saveSwappedImage=False)
