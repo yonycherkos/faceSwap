@@ -2,7 +2,7 @@ syntax = "proto3";
 
 message ImageFileIn {
 	string input_image = 1;
-  string meme_image = 2;
+  	string meme_image = 2;
 	string mode = 3;
 }
 

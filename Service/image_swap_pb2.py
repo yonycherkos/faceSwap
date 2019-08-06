@@ -20,7 +20,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\x10image_swap.proto\"6\n\x0bImageFileIn\x12\x13\n\x0binput_image\x18\x01 \x01(\t\x12\x12\n\nmeme_image\x18\x02 \x01(\t\"!\n\x0cImageFileOut\x12\x11\n\timage_out\x18\x01 \x01(\t25\n\x08\x46\x61\x63\x65Swap\x12)\n\x08\x66\x61\x63\x65Swap\x12\x0c.ImageFileIn\x1a\r.ImageFileOut\"\x00\x62\x06proto3')
+  serialized_pb=_b('\n\x10image_swap.proto\"D\n\x0bImageFileIn\x12\x13\n\x0binput_image\x18\x01 \x01(\t\x12\x12\n\nmeme_image\x18\x02 \x01(\t\x12\x0c\n\x04mode\x18\x03 \x01(\t\"!\n\x0cImageFileOut\x12\x11\n\timage_out\x18\x01 \x01(\t25\n\x08\x46\x61\x63\x65Swap\x12)\n\x08\x66\x61\x63\x65Swap\x12\x0c.ImageFileIn\x1a\r.ImageFileOut\"\x00\x62\x06proto3')
 )
 
 
@@ -47,6 +47,13 @@ _IMAGEFILEIN = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='mode', full_name='ImageFileIn.mode', index=2,
+      number=3, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -60,7 +67,7 @@ _IMAGEFILEIN = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=20,
-  serialized_end=74,
+  serialized_end=88,
 )
 
 
@@ -90,8 +97,8 @@ _IMAGEFILEOUT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=76,
-  serialized_end=109,
+  serialized_start=90,
+  serialized_end=123,
 )
 
 DESCRIPTOR.message_types_by_name['ImageFileIn'] = _IMAGEFILEIN
@@ -120,8 +127,8 @@ _FACESWAP = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=111,
-  serialized_end=164,
+  serialized_start=125,
+  serialized_end=178,
   methods=[
   _descriptor.MethodDescriptor(
     name='faceSwap',

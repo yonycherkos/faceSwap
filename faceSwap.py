@@ -2,6 +2,10 @@ import numpy as np
 import cv2
 import dlib
 
+# type of modes to apply face swapping
+ALL_FACE_MODE = 'apply_on_all'
+LARGEST_FACE_MODE = 'choose_largest_face'
+
 
 class FaceSwap():
     """use to swap images"""
@@ -40,21 +44,22 @@ class FaceSwap():
         # convert the image to greyscaleprint("land here")
         try:
             img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        except Exception:
-            raise ValueError("image note found. ")
+        except Exception as e:
+            raise ValueError("Image could not be converted to grayscale")
 
         # detect the face then find the landmarks points
         detector = dlib.get_frontal_face_detector()
         try:
             predictor = dlib.shape_predictor(
                 'shape_predictor_68_face_landmarks.dat')
-        except Exception:
-            raise FileNotFoundError("the dlib model can't be found. ")
+        except Exception as e:
+            raise ValueError(
+                "facial landmark points file cann't be found. Download 'shape_predictor_68_face_landmarks.dat'")
 
-        try:
-            faces = detector(img_gray)
-        except Exception:
-            raise ValueError("facial landmark points cann't be detected. ")
+        faces = detector(img_gray)
+        if len(faces) == 0:
+            raise ValueError('No face could be detected.')
+
         faces_landmark_points = []
         for face in faces:
             landmarks = predictor(img_gray, face)
@@ -504,7 +509,18 @@ class FaceSwap():
             The swapped image.
 
         """
-        if mode == "choose_largest_face":
+        # if mode == "choose_largest_face":
+
+        if mode == ALL_FACE_MODE:
+            faces = np.array(faces_landmark_points2).shape[0]
+            for face in range(faces):
+                landmark_points1 = faces_landmark_points1[0]
+                landmark_points2 = faces_landmark_points2[face]
+
+                swappedImage = self.applyForBothModes(
+                    img1, img2, img2_original, landmark_points1, landmark_points2)
+                img2_original = swappedImage
+        else:
             # find landmark points of the largest face in an image
             landmark_points1 = self.choose_largest_face(faces_landmark_points1)
             landmark_points2 = self.choose_largest_face(faces_landmark_points2)
@@ -515,15 +531,6 @@ class FaceSwap():
 
             swappedImage = self.applyForBothModes(
                 img1, img2, img2_original, landmark_points1, landmark_points2)
-        elif mode == "apply_on_all":
-            faces = np.array(faces_landmark_points2).shape[0]
-            for face in range(faces):
-                landmark_points1 = faces_landmark_points1[0]
-                landmark_points2 = faces_landmark_points2[face]
-
-                swappedImage = self.applyForBothModes(
-                    img1, img2, img2_original, landmark_points1, landmark_points2)
-                img2_original = swappedImage
 
         return swappedImage
 

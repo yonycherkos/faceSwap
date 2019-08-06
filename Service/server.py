@@ -5,23 +5,25 @@ import time
 import image_swap_pb2
 import image_swap_pb2_grpc
 
+from base64_faceswap import base64_face_swap
 
-from faceswap import face_swap
 
 class FaceSwapServicer(image_swap_pb2_grpc.FaceSwapServicer):
-    def faceSwap(self,request,context):
+    def faceSwap(self, request, context):
         if request.input_image is None:
             context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
             context.set_details("Input Image is required")
-            return image_swap_pb2_grpc.ImageFileOut()
+            return image_swap_pb2.ImageFileOut()
         if request.meme_image is None:
             context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
             context.set_details("Meme Image is required")
-            return image_swap_pb2_grpc.ImageFileOut()
+            return image_swap_pb2.ImageFileOut()
 
-        result = face_swap(request.input_image,request.meme_image)
+        mode = 'choose_largest_face' if request.mode is None else request.mode
+
+        result = base64_face_swap(
+            request.input_image, request.meme_image, mode)
         response = image_swap_pb2.ImageFileOut(image_out=result)
-
 
         return response
 
@@ -33,7 +35,8 @@ class Server():
 
     def start_server(self):
         self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-        image_swap_pb2_grpc.add_FaceSwapServicer_to_server(FaceSwapServicer(), self.server)
+        image_swap_pb2_grpc.add_FaceSwapServicer_to_server(
+            FaceSwapServicer(), self.server)
         print('Starting server. Listening on port 50051.')
         self.server.add_insecure_port(self.port)
         self.server.start()
