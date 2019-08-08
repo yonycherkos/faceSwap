@@ -1,10 +1,6 @@
 import argparse
 import grpc
-from concurrent import futures
-import time
-
 import os
-import grpc
 
 import image_swap_pb2
 import image_swap_pb2_grpc
@@ -13,10 +9,10 @@ from inspect import getsourcefile
 import os.path
 import sys
 import base64
-import magic
+# import magic
 from PIL import Image
 import tempfile
-import cv2
+# import cv2
 
 current_path = os.path.abspath(getsourcefile(lambda: 0))
 current_dir = os.path.dirname(current_path)
@@ -47,17 +43,12 @@ class ClientTest():
 
     def byte_to_img(self, input_image):
         binary_image = base64.b64decode(input_image)
-        file_format = magic.from_buffer(
-            base64.b64decode(input_image), mime=True).split('/')[1]
 
         f = tempfile.NamedTemporaryFile(suffix='.jpg')
         f.write(binary_image)
         image = Image.open(f.name).convert('RGB')
 
         return image
-
-    def close_channel(self, channel):
-        pass
 
 
 if __name__ == "__main__":
@@ -74,4 +65,4 @@ if __name__ == "__main__":
         stub, image_input=image, meme_input=meme)
 
     image = client_test.byte_to_img(response.image_out)
-    # image.save('a.jpg')
+    image.save('images/output.jpg')

@@ -4,7 +4,6 @@ test.ipynb
 # Generated image files
 /images/generated_images
 
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
