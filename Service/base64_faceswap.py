@@ -1,6 +1,4 @@
 import cv2
-# import magic
-# import tempfile
 import base64
 import numpy as np
 from PIL import Image

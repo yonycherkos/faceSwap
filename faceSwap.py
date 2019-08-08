@@ -512,25 +512,6 @@ class FaceSwap():
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
-    # def saveSwappedImage(self, swappedImage):
-    #     """Save warped image to images/generated_images with image2 filename.
-    #
-    #     Parameters
-    #     ----------
-    #     swappedImage : numpy.nparray
-    #         Img2 after swapping.
-    #
-    #     Returns
-    #     -------
-    #     return the warped image.
-    #
-    #     """
-    #
-    #     # image2name = self.image2.split("/")[2]
-    #     cv2.imwrite("images/generated_images/swappedImage.jpg", swappedImage)
-    #
-    #     return swappedImage
-
     def faceSwap(self, img1, img2, mode="choose_largest_face", showImages=False):
         """Warping all up.
 
@@ -544,9 +525,6 @@ class FaceSwap():
 
         showOriginalImages : bool
             An optional argument whether or not to show the original images.
-
-        # saveSwappedImage : bool
-        #     An optional argument whether or not to save the swapped image.
 
         Returns
         -------
@@ -568,9 +546,6 @@ class FaceSwap():
         if showImages is True:
             self.showImages(img1, img2_original, swappedImage,
                             showOriginalImages=True)
-
-        # if saveSwappedImage is True:
-        #     self.saveSwappedImage(swappedImage)
 
         return swappedImage
 
