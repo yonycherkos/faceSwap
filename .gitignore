@@ -6,6 +6,7 @@ shape_predictor_68_face_landmarks.dat
 
 # Generated image files
 /images/generated_images
+output.jpg
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

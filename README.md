@@ -5,15 +5,13 @@ This is face swapping project with opencv python. It takes two images as input t
 
 ## Prerequisites
 
-For this project you need to install python3 and these libraries
+- For this project you need to install python3 and necessary libraries using the following command:
 
-```
-* numpy
-* opencv
-* dlib
-* Download the facial landmark detector dlib model from [here](https://github.com/AKSHAYUBHAT/TensorFace/blob/master/openface/models/dlib/shape_predictor_68_face_landmarks.dat). and put on the main project path.
+  - `pip3 install -r requirements.txt`
 
-```
+* Download the facial landmark detector dlib model from [here](https://github.com/AKSHAYUBHAT/TensorFace/blob/master/openface/models/dlib/shape_predictor_68_face_landmarks.dat) and put it in the main project folder. Or alternatively, use the following command from main project folder to get the file:
+  - `wget https://github.com/AKSHAYUBHAT/TensorFace/raw/master/openface/models/dlib/shape_predictor_68_face_landmarks.dat`
+
 
 ## Getting Started
 
