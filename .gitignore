@@ -1,6 +1,14 @@
 .idea
 test.ipynb
 
+# ignoring image cleaning
+image_cleaning.py
+
+# testing images
+meme-data
+filtered_out
+
+
 # the landmark detector dlib model
 shape_predictor_68_face_landmarks.dat
 
