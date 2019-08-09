@@ -507,6 +507,10 @@ class FaceSwap():
             img1 = self.alight_face_direction(
                 img1, landmark_points1, landmark_points2)
 
+            # recompute lanmark points on the flipped image or new one.
+            faces_landmark_points1 = self.landmark_detection(img1)
+            landmark_points1 = self.choose_largest_face(faces_landmark_points1)
+
             swappedImage = self.applyForBothModes(
                 img1, img2, img2_original, landmark_points1, landmark_points2)
 
@@ -552,12 +556,12 @@ class FaceSwap():
 
 if __name__ == '__main__':
 
-    image1 = "images/yony.jpg"
-    image2 = "images/anchorman.jpg"
+    image1 = "images/kalise.jpg"
+    image2 = "images/black_and_white.jpg"
 
     img1 = cv2.imread(image1)
     img2 = cv2.imread(image2)
 
     faceSwap = FaceSwap()
-    swappedImage = faceSwap.faceSwap(img1, img2, mode="apply_on_all",
+    swappedImage = faceSwap.faceSwap(img1, img2, mode="choose_largest_face",
                                      showImages=True)
