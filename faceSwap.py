@@ -100,95 +100,6 @@ class FaceSwap():
 
         return largest_face_landmark_points
 
-    def applyForBothModes(self, img1, img2, img2_original, landmark_points1, landmark_points2):
-        """This function contain code tha will be use for both mode. inorder to avoid repetition.
-
-        Parameters
-        ----------
-        img1 : nparray
-            Readed value of image1.
-        img2 : type
-            Readed value of image2
-        img2_original : type
-            The original readed img2 for backup.
-        landmark_points1 : list
-            List of facial landmark poinst of single face in image1.
-        landmark_points2 : type
-            List of facial landmark poinst of single face in image2.
-
-        Returns
-        -------
-        swappedImage: numpy.ndarray
-            The swapped image.
-
-        """
-        # find the convex hull bounding the landmark points of the images
-        hull1, hull2 = self.applyConvexHull(
-            landmark_points1, landmark_points2)
-
-        # calculate the delauney triangulations
-        # triangulation_indexes1 = self.calculateDelaunayTriangles(
-        #     img1, hull1)
-        triangulation_indexes2 = self.calculateDelaunayTriangles(
-            img2, hull2)
-
-        img2warped = self.applyWarpTriangle(
-            img1, img2, triangulation_indexes2, hull1, hull2)
-
-        swappedImage = self.applySeamlessClone(
-            img2warped, img2_original, hull2)
-
-        return swappedImage
-
-    def chooseModes(self, img1, img2, img2_original, faces_landmark_points1, faces_landmark_points2, mode="choose_largest_face"):
-        """Choose ways to swap the images.
-
-        Parameters
-        ----------
-        img1 : nparray
-            Readed value of image1.
-        img2 : type
-            Readed value of image2
-        img2_original : type
-            The original readed img2 for backup.
-        faces_landmark_points1 : list
-            landmark points of all the faces in image1.
-        faces_landmark_points2 : list
-            landmark points of all the faces in image2.
-        mode : str
-            Choose either 'choose_largest_face' or 'apply_on_all'.
-
-        Returns
-        -------
-        swappedImage: numpy.ndarray
-            The swapped image.
-
-        """
-        # if mode == "choose_largest_face":
-
-        if mode == ALL_FACE_MODE:
-            faces = np.array(faces_landmark_points2).shape[0]
-            for face in range(faces):
-                landmark_points1 = faces_landmark_points1[0]
-                landmark_points2 = faces_landmark_points2[face]
-
-                swappedImage = self.applyForBothModes(
-                    img1, img2, img2_original, landmark_points1, landmark_points2)
-                img2_original = swappedImage
-        else:
-            # find landmark points of the largest face in an image
-            landmark_points1 = self.choose_largest_face(faces_landmark_points1)
-            landmark_points2 = self.choose_largest_face(faces_landmark_points2)
-
-            # match the direction of the two images
-            img1 = self.alight_face_direction(
-                img1, landmark_points1, landmark_points2)
-
-            swappedImage = self.applyForBothModes(
-                img1, img2, img2_original, landmark_points1, landmark_points2)
-
-        return swappedImage
-
     # left or right face direction
     def find_face_direction(self, landmark_points):
         """Find left or right direction of a face.
@@ -511,6 +422,95 @@ class FaceSwap():
 
         cv2.waitKey(0)
         cv2.destroyAllWindows()
+
+    def applyForBothModes(self, img1, img2, img2_original, landmark_points1, landmark_points2):
+        """This function contain code tha will be use for both mode. inorder to avoid repetition.
+
+        Parameters
+        ----------
+        img1 : nparray
+            Readed value of image1.
+        img2 : type
+            Readed value of image2
+        img2_original : type
+            The original readed img2 for backup.
+        landmark_points1 : list
+            List of facial landmark poinst of single face in image1.
+        landmark_points2 : type
+            List of facial landmark poinst of single face in image2.
+
+        Returns
+        -------
+        swappedImage: numpy.ndarray
+            The swapped image.
+
+        """
+        # find the convex hull bounding the landmark points of the images
+        hull1, hull2 = self.applyConvexHull(
+            landmark_points1, landmark_points2)
+
+        # calculate the delauney triangulations
+        # triangulation_indexes1 = self.calculateDelaunayTriangles(
+        #     img1, hull1)
+        triangulation_indexes2 = self.calculateDelaunayTriangles(
+            img2, hull2)
+
+        img2warped = self.applyWarpTriangle(
+            img1, img2, triangulation_indexes2, hull1, hull2)
+
+        swappedImage = self.applySeamlessClone(
+            img2warped, img2_original, hull2)
+
+        return swappedImage
+
+    def chooseModes(self, img1, img2, img2_original, faces_landmark_points1, faces_landmark_points2, mode="choose_largest_face"):
+        """Choose ways to swap the images.
+
+        Parameters
+        ----------
+        img1 : nparray
+            Readed value of image1.
+        img2 : type
+            Readed value of image2
+        img2_original : type
+            The original readed img2 for backup.
+        faces_landmark_points1 : list
+            landmark points of all the faces in image1.
+        faces_landmark_points2 : list
+            landmark points of all the faces in image2.
+        mode : str
+            Choose either 'choose_largest_face' or 'apply_on_all'.
+
+        Returns
+        -------
+        swappedImage: numpy.ndarray
+            The swapped image.
+
+        """
+        # if mode == "choose_largest_face":
+
+        if mode == ALL_FACE_MODE:
+            faces = np.array(faces_landmark_points2).shape[0]
+            for face in range(faces):
+                landmark_points1 = faces_landmark_points1[0]
+                landmark_points2 = faces_landmark_points2[face]
+
+                swappedImage = self.applyForBothModes(
+                    img1, img2, img2_original, landmark_points1, landmark_points2)
+                img2_original = swappedImage
+        else:
+            # find landmark points of the largest face in an image
+            landmark_points1 = self.choose_largest_face(faces_landmark_points1)
+            landmark_points2 = self.choose_largest_face(faces_landmark_points2)
+
+            # match the direction of the two images
+            img1 = self.alight_face_direction(
+                img1, landmark_points1, landmark_points2)
+
+            swappedImage = self.applyForBothModes(
+                img1, img2, img2_original, landmark_points1, landmark_points2)
+
+        return swappedImage
 
     def faceSwap(self, img1, img2, mode="choose_largest_face", showImages=False):
         """Warping all up.
