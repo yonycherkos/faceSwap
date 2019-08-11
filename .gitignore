@@ -8,13 +8,16 @@ image_cleaning.py
 meme-data
 filtered_out
 
-
 # the landmark detector dlib model
 shape_predictor_68_face_landmarks.dat
 
 # Generated image files
 /images/generated_images
 output.jpg
+
+# ignoring image cleaning files
+top10/
+top10.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
