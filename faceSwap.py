@@ -487,7 +487,9 @@ class FaceSwap():
             The swapped image.
 
         """
-        # if mode == "choose_largest_face":
+        # check if there is only a single face in the second image
+        if np.array(faces_landmark_points1).shape[0] == 1:
+            mode == "choose_largest_face"
 
         if mode == ALL_FACE_MODE:
             faces = np.array(faces_landmark_points2).shape[0]

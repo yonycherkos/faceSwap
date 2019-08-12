@@ -17,8 +17,8 @@ This is face swapping project with opencv python. It takes two images as input t
 
 For getting start with this project
 * select two image from the given one or your own images.
-* then change the image1 and image2 path of the demo.py.
-* finally run the demo.py python script.
+* then run the demo.py python script and Enter image1 and image2 absolute or relative path as argument.
+* ex: python demo.py images/yony.jpg images/anchorman.jpg
 * the output show the two original images and the swapped image based on your choose.
 
 ## how to use the grpc client and server
