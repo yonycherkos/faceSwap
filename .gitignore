@@ -7,6 +7,8 @@ image_cleaning.py
 # testing images
 meme-data
 filtered_out
+/test_images
+testing_images.py
 
 # the landmark detector dlib model
 shape_predictor_68_face_landmarks.dat
