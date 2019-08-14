@@ -5,7 +5,8 @@ import time
 import image_swap_pb2
 import image_swap_pb2_grpc
 
-from base64_faceswap import base64_face_swap
+from base64_conversion import np_img_from_base64, base64_from_np_img
+from faceswap.faceswap import faceSwap
 
 
 class FaceSwapServicer(image_swap_pb2_grpc.FaceSwapServicer):
@@ -21,9 +22,17 @@ class FaceSwapServicer(image_swap_pb2_grpc.FaceSwapServicer):
 
         mode = 'choose_largest_face' if request.mode is None else request.mode
 
-        result = base64_face_swap(
-            request.input_image, request.meme_image, mode)
-        response = image_swap_pb2.ImageFileOut(image_out=result)
+        # change base64 images to cv2 computable images
+        inputImage = np_img_from_base64(request.input_image)
+        memeImage = np_img_from_base64(request.meme_image)
+
+        # swap faces
+        result = faceSwap(inputImage, memeImage, mode=mode)
+
+        # change result image to base64 for response
+        result_base64 = base64_from_np_img(result)
+
+        response = image_swap_pb2.ImageFileOut(image_out=result_base64)
 
         return response
 

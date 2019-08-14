@@ -1,25 +1,12 @@
 import argparse
 import grpc
-import os
 
 import image_swap_pb2
 import image_swap_pb2_grpc
 
-from inspect import getsourcefile
-import os.path
-import sys
 import base64
-# import magic
 from PIL import Image
 import tempfile
-# import cv2
-
-current_path = os.path.abspath(getsourcefile(lambda: 0))
-current_dir = os.path.dirname(current_path)
-parent_dir = current_dir[:current_dir.rfind(os.path.sep)]
-
-sys.path.insert(0, parent_dir)
-
 
 parser = argparse.ArgumentParser()
 
