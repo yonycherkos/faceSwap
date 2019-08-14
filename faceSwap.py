@@ -100,7 +100,6 @@ class FaceSwap():
 
         return largest_face_landmark_points
 
-    # left or right face direction
     def find_face_direction(self, landmark_points):
         """Find left or right direction of a face.
 
@@ -323,7 +322,6 @@ class FaceSwap():
         # Copy triangular region of the rectangular patch to the output image
         img2[r2[1]:r2[1] + r2[3], r2[0]:r2[0] + r2[2]] = img2[r2[1]:r2[1] + r2[3],
                                                               r2[0]:r2[0] + r2[2]] * ((1.0, 1.0, 1.0) - mask) + img2_roi
-        # img2[r2[1]:r2[1]+r2[3], r2[0]:r2[0]+r2[2]] = img2[r2[1]:r2[1]+r2[3], r2[0]:r2[0]+r2[2]] + img2Rect
 
     def applyWarpTriangle(self, img1, img2, img2Tri, points1, points2):
         """Compute warp triangles for each triangles of image1 and image2.first find.
