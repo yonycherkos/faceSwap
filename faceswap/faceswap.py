@@ -142,16 +142,16 @@ def align_face_direction(src_img, src_landmark_points, dst_landmark_points):
 
     Parameters
     ----------
-    img1 : nparray
-        Numpy array of image1.
-    landmark_points1 : list
-        Landmark points of image1`.
-    landmark_points2 : list
-        Landmark points of image2.
+    src_img : nparray
+        Numpy array of src_image.
+    src_landmark_points : list
+        Landmark points of src_image`.
+    dst_landmark_points : list
+        Landmark points of dst_image.
 
     Returns
     -------
-    img1: nparray
+    src_img: nparray
         The flipped or the original image numpy array.
     """
 
@@ -172,38 +172,38 @@ def applyConvexHull(src_landmark_points, dst_landmark_points):
 
     Parameters
     ----------
-    points1 : list
+    src_landmark_points : list
         a list of tuple integer of landmark points 1.
-    points2 : list
+    dst_landmark_points : list
         a list of tuple integer of landmark points 2.
 
     Returns
     -------
-    hull1 : list
+    src_hull_points : list
         return a list of tuple integer of convex hull points bounding landmark points 1.
-    hull2 : list
+    dst_hull_points : list
         return a list of tuple integer of convex hull points bounding landmark points 2.
     """
 
     # Find convex hull of the two landmark points
-    src_hull = []
-    dst_hull = []
+    src_hull_points = []
+    dst_hull_points = []
 
     src_hull_index = cv2.convexHull(src_landmark_points, returnPoints=False)
     dst_hull_index = cv2.convexHull(dst_landmark_points, returnPoints=False)
 
-    # use the minimum number of convex hull points to avoid index out of bound.
+    # use the max number of convex hull points.
     # ? should we use larger or smaller(for the sake of only avoid index out of bound)
-    if len(src_hull_index) < len(dst_hull_index):
-        min_hull_index = src_hull_index
+    if len(src_hull_index) > len(dst_hull_index):
+        max_hull_index = src_hull_index
     else:
-        min_hull_index = dst_hull_index
+        max_hull_index = dst_hull_index
 
-    for i in range(len(min_hull_index)):
-        src_hull.append(src_landmark_points[int(min_hull_index[i])])
-        dst_hull.append(dst_landmark_points[int(min_hull_index[i])])
+    for i in range(len(max_hull_index)):
+        src_hull_points.append(src_landmark_points[int(max_hull_index[i])])
+        dst_hull_points.append(dst_landmark_points[int(max_hull_index[i])])
 
-    return src_hull, dst_hull
+    return src_hull_points, dst_hull_points
 
 
 def calculateDelaunayTriangles(img, hull_points):
@@ -212,10 +212,10 @@ def calculateDelaunayTriangles(img, hull_points):
 
     Parameters
     ----------
-    image : str
+    img : nparray
         image file path.
-    points : list
-        landmark points of the image.
+    hull_points : list
+        hull points of the image.
 
     Returns
     -------
@@ -223,8 +223,8 @@ def calculateDelaunayTriangles(img, hull_points):
         return a list tuple integer contain the indexes of the landmark points.
     """
     # ? should we calculate all delanuay triangles
-
-    rect = (0, 0, img.shape[1], img.shape[0])
+    (h, w, _) = img.shape
+    rect = (0, 0, w, h)
 
     subdiv = cv2.Subdiv2D(rect)
     subdiv.insert(hull_points)
@@ -240,11 +240,13 @@ def calculateDelaunayTriangles(img, hull_points):
         vertexes = [vtx1, vtx2, vtx3]
 
         index = []  # ? this index
-        # Get face-points (from 68 face detector) by coordinates
+        # find the corresponding hull points of the triangleList
+        # or find the indexes of the corresponding hull points
         for i in range(3):
             for j in range(0, len(hull_points)):
                 if(vertexes[i][0] == hull_points[j][0] and vertexes[i][1] == hull_points[j][1]):
                     index.append(j)
+                    break
         # Three points form a triangle
         if len(index) == 3:
             delaunayTri_indexes.append((index[0], index[1], index[2]))
@@ -252,50 +254,51 @@ def calculateDelaunayTriangles(img, hull_points):
     return delaunayTri_indexes
 
 
-def applyAffineTransform(src, srcTri, dstTri, dst_size):
-    """Warp image1 ROI using the convertion matrix.
+def applyAffineTransform(src, srcTri_offset, dstTri_offset, dst_size):
+    """Warp src_image ROI using the convertion matrix.
 
     Parameters
     ----------
     src : numpy.ndarray
-        image1 ROI which is to be warped.
-    srcTri : list
-        single triangle points of image1.
-    dstTri : list
-        single triangle points of image2.
+        src_image ROI which is to be warped.
+    srcTri_offset : list
+        single triangle points of src_image.
+    dstTri_offset : list
+        single triangle points of dst_image.
     dsize : tuple
-        size(w, h) of img2 ROI.
+        size(w, h) of dst_img ROI.
 
     Returns
     -------
     dst : numpy.ndarray
-        warped image1 ROI.
+        warped src_image ROI.
 
     """
     # find convertion matrix from triangle1 to triangle2
     warpMat = cv2.getAffineTransform(
-        np.float32(srcTri), np.float32(dstTri))
+        np.float32(srcTri_offset), np.float32(dstTri_offset))
 
     # ? warping method
-    dst = cv2.warpAffine(src, warpMat, (dst_size[0], dst_size[1]), None,
+    (w, h) = dst_size
+    dst = cv2.warpAffine(src, warpMat, (w, h), None,
                          flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT_101)
 
     return dst
 
 
-def warpTriangle(img1, img2, t1, t2):
-    """Warp t1 to t2 then replace triangle 2 portion of img2 by triangle 1 portion of img1.
+def warpTriangle(src_img, dst_img, srcTri, dstTri):
+    """Warp srcTri to dstTri then replace triangle 2 portion of dst_img by triangle 1 portion of src_img.
 
     Parameters
     ----------
-    img1 : numpy.ndarray
-        output of image1 read by opencv.
-    img2 : numpy.ndarray
-        output of image2 read by opencv.
-    t1 : tuple
-        a single triangle points of image1.
-    t2 : tuple
-        a single triangle points of image2.
+    src_img : numpy.ndarray
+        output of src_image read by opencv.
+    dst_img : numpy.ndarray
+        output of dst_image read by opencv.
+    srcTri : tuple
+        a single triangle points of src_image.
+    dstTri : tuple
+        a single triangle points of dst_image.
 
     Returns
     -------
@@ -303,121 +306,120 @@ def warpTriangle(img1, img2, t1, t2):
     """
 
     # Find bounding rectangle for each triangle
-    r1 = cv2.boundingRect(np.array(t1))
-    r2 = cv2.boundingRect(np.array(t2))
+    srcTri_boundingRect = cv2.boundingRect(np.array(srcTri))
+    dstTri_boundingRect = cv2.boundingRect(np.array(dstTri))
 
     # Offset points by left top corner of the respective rectangles
-    t1_offset = []
-    t2_offset = []
+    srcTri_offset = []
+    dstTri_offset = []
 
     for i in range(3):
-        t1_offset.append(((t1[i][0] - r1[0]), (t1[i][1] - r1[1])))
-        t2_offset.append(((t2[i][0] - r2[0]), (t2[i][1] - r2[1])))
+        srcTri_offset.append(((srcTri[i][0] - srcTri_boundingRect[0]), (srcTri[i][1] - srcTri_boundingRect[1])))
+        dstTri_offset.append(((dstTri[i][0] - dstTri_boundingRect[0]), (dstTri[i][1] - dstTri_boundingRect[1])))
 
     # Apply warpImage to small rectangular patches
-    img1_roi = img1[r1[1]:r1[1] + r1[3], r1[0]:r1[0] + r1[2]]
+    (src_x, src_y, src_w, src_h) = (srcTri_boundingRect[0], srcTri_boundingRect[1], srcTri_boundingRect[2], srcTri_boundingRect[3])
+    src_img_rect_roi = src_img[src_y:src_y + src_h, src_x:src_x + src_w]
 
-    size = (r2[2], r2[3])  # size = (w, h) or (x, y)
-    img2_roi = applyAffineTransform(
-        img1_roi, t1_offset, t2_offset, size)
+    (dst_x, dst_y, dst_w, dst_h) = (dstTri_boundingRect[0], dstTri_boundingRect[1], dstTri_boundingRect[2], dstTri_boundingRect[3])
+    dst_img_rect_roi = applyAffineTransform(
+        src_img_rect_roi, srcTri_offset, dstTri_offset, (dst_w, dst_h))
 
     # Get mask by filling triangle
-    mask = np.zeros((r2[3], r2[2], 3), dtype=np.float32)
-    cv2.fillConvexPoly(mask, np.int32(t2_offset), (1.0, 1.0, 1.0))
-    img2_roi = img2_roi * mask
+    mask = np.zeros((dst_h, dst_w, 3), dtype=np.float32)
+    cv2.fillConvexPoly(mask, np.int32(dstTri_offset), (1.0, 1.0, 1.0))
+    dst_img_rect_roi = dst_img_rect_roi * mask
 
     # Copy triangular region of the rectangular patch to the output image
-    img2[r2[1]:r2[1] + r2[3], r2[0]:r2[0] + r2[2]] = img2[r2[1]:r2[1] + r2[3],
-                                                          r2[0]:r2[0] + r2[2]] * ((1.0, 1.0, 1.0) - mask) + img2_roi
-    # img2[r2[1]:r2[1]+r2[3], r2[0]:r2[0]+r2[2]] = img2[r2[1]:r2[1]+r2[3], r2[0]:r2[0]+r2[2]] + img2Rect
+    dst_img[dst_y: dst_y + dst_h, dst_x: dst_x + dst_w] = dst_img[dst_y: dst_y + dst_h, dst_x: dst_x + dst_w] * ((1.0, 1.0, 1.0) - mask) + dst_img_rect_roi
 
 
-def applyWarpTriangle(img1, img2, img2Tri, points1, points2):
-    """Compute warp triangles for each triangles of image1 and image2.first find.
+def applyWarpTriangle(src_img, dst_img, dstTri_indexes, src_hull_points, dst_hull_points):
+    """Compute warp triangles for each triangles of src_image and dst_image.first find.
         corresponding landmark points of each triangles from the triangulations
-        indexes. then warp each triangle of image1 to image2 by calling created
+        indexes. then warp each triangle of src_image to dst_image by calling created
         warpTriangle function.
 
     Parameters
     ----------
-    img1 : numpy.ndarray
-        output of image1 read by opencv.
-    img2 : numpy.ndarray
-        output of image2 read by opencv.
-    img2Tri : list
-        delaunay triangle indexes of image2.
-    points1 : list
-        landmark points of image1.
-    points2 : list
-        landmark points of image2.
+    src_img : numpy.ndarray
+        output of src_image read by opencv.
+    dst_img : numpy.ndarray
+        output of dst_image read by opencv.
+    dstTri_indexes : list
+        delaunay triangle indexes of dst_image.
+    src_hull_points : list
+        landmark points of src_image.
+    dst_hull_points : list
+        landmark points of dst_image.
 
     Returns
     -------
-    img2 : numpy.ndarray
-        warped img1 copied to img2.
+    dst_img : numpy.ndarray
+        warped src_img copied to dst_img.
 
     """
 
     # iterate through each triangles
-    for i in range(len(img2Tri)):
-        t1 = []
-        t2 = []
+    for i in range(len(dstTri_indexes)):
+        srcTri = []
+        dstTri = []
 
-        # iterate through all the three triangle indexes and find t1 and t2
+        # iterate through all the three triangle indexes and find srcTri and dstTri
         for j in range(3):
-            t1.append(points1[img2Tri[i][j]])
-            t2.append(points2[img2Tri[i][j]])
+            srcTri.append(src_hull_points[dstTri_indexes[i][j]])
+            dstTri.append(dst_hull_points[dstTri_indexes[i][j]])
 
-        warpTriangle(img1, img2, t1, t2)
+        warpTriangle(src_img, dst_img, srcTri, dstTri)
 
-    return img2
+    return dst_img
 
 
-def applySeamlessClone(src, dst, dstPoints):
-    """Crop portion of src image and copy it to dst image.
+def applySeamlessClone(dst_warped_img, dst_original_img, dstPoints):
+    """Crop portion of dst_warped_img image and copy it to dst image.
 
     Parameters
     ----------
-    src : type
-        Description of parameter `src`.
-    dst : type
-        Description of parameter `dst`.
+    dst_warped_img : nparray
+        warped destination image.
+    dst_original_img : nparray
+        .
     dstPoints : type
         Description of parameter `dstPoints`.
 
     Returns
     -------
     swappedImage : numpy.nparray
-        return portion image2 replaced by portion of image1.
+        return portion dst_image replaced by portion of dst_warped_img_image.
 
     """
 
     # calculate mask
-    mask = np.zeros(dst.shape, dtype=dst.dtype)
+    mask = np.zeros(dst_original_img.shape, dtype=dst_original_img.dtype)
     cv2.fillConvexPoly(mask, np.int32(dstPoints), (255, 255, 255))
 
-    # calculate center dst image where center of src image put
-    r = cv2.boundingRect(np.float32([dstPoints]))
-    center = ((r[0] + int(r[2] / 2), r[1] + int(r[3] / 2)))
+    # calculate center dst image where center of dst_warped_img image put
+    rect = cv2.boundingRect(np.float32([dstPoints]))
+    center = ((rect[0] + int(rect[2] / 2), rect[1] + int(rect[3] / 2)))
 
     # ? check MIXED_CLONE mode
     swappedImage = cv2.seamlessClone(
-        src, dst, mask, center, cv2.NORMAL_CLONE)
+        dst_warped_img, dst_original_img, mask, center, cv2.NORMAL_CLONE)
 
     return swappedImage
 
 
-def show_images(img1, img2, swappedImage, showOriginalImages=False):
-    """Display image1, image2 and warped image.
+def show_images(src_img, dst_img, swappedImage, showOriginalImages=False):
+    """Display src_image, dst_image and warped image.
 
     Parameters
     ----------
-    img1 : numpy.nparray
-        output of image1 read with opencv.
-    img2 : numpy:nparray
-        output of image2 read with opencv.
+    src_img : numpy.nparray
+        output of src_image read with opencv.
+    dst_img : numpy:nparray
+        output of dst_image read with opencv.
     swappedImage : numpy.nparray
-        the swapped image or new value of image2.
+        the swapped image or new value of dst_image.
 
     Returns
     -------
@@ -426,29 +428,29 @@ def show_images(img1, img2, swappedImage, showOriginalImages=False):
     """
 
     if showOriginalImages:
-        cv2.imshow("image1", img1)
-        cv2.imshow("image2", img2)
+        cv2.imshow("src_image", src_img)
+        cv2.imshow("dst_image", dst_img)
     cv2.imshow("swappedImage", swappedImage)
 
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
 
-def applyForBothModes(img1, img2, img2_original, landmark_points1, landmark_points2):
+def applyForBothModes(src_img, dst_img, dst_original_img, src_landmark_points, dst_landmark_points):
     """This function contain code tha will be use for both mode. inorder to avoid repetition.
 
     Parameters
     ----------
-    img1 : nparray
-        Readed value of image1.
-    img2 : type
-        Readed value of image2
-    img2_original : type
-        The original readed img2 for backup.
-    landmark_points1 : list
-        List of facial landmark poinst of single face in image1.
-    landmark_points2 : type
-        List of facial landmark poinst of single face in image2.
+    src_img : nparray
+        Readed value of src_image.
+    dst_img : type
+        Readed value of dst_image
+    dst_original_img : type
+        The original readed dst_img for backup.
+    src_landmark_points : list
+        List of facial landmark poinst of single face in src_image.
+    dst_landmark_points : type
+        List of facial landmark poinst of single face in dst_image.
 
     Returns
     -------
@@ -457,39 +459,39 @@ def applyForBothModes(img1, img2, img2_original, landmark_points1, landmark_poin
 
     """
     # find the convex hull bounding the landmark points of the images
-    hull1, hull2 = applyConvexHull(
-        landmark_points1, landmark_points2)
+    src_hull_points, dst_hull_points = applyConvexHull(
+        src_landmark_points, dst_landmark_points)
 
     # calculate the delauney triangulations
-    # triangulation_indexes1 = calculateDelaunayTriangles(
-    #     img1, hull1)
-    triangulation_indexes2 = calculateDelaunayTriangles(
-        img2, hull2)
+    # srcTri_indexes = calculateDelaunayTriangles(
+    #     src_img, src_hull_points)
+    dstTi_indexes = calculateDelaunayTriangles(
+        dst_img, dst_hull_points)
 
-    img2warped = applyWarpTriangle(
-        img1, img2, triangulation_indexes2, hull1, hull2)
+    dst_warped_img = applyWarpTriangle(
+        src_img, dst_img, dstTi_indexes, src_hull_points, dst_hull_points)
 
     swappedImage = applySeamlessClone(
-        img2warped, img2_original, hull2)
+        dst_warped_img, dst_original_img, dst_hull_points)
 
     return swappedImage
 
 
-def chooseModes(img1, img2, img2_original, faces_landmark_points1, faces_landmark_points2, mode="choose_largest_face"):
+def chooseModes(src_img, dst_img, dst_original_img, src_faces_landmark_points, dst_faces_landmark_points, mode="choose_largest_face"):
     """Choose ways to swap the images.
 
     Parameters
     ----------
-    img1 : nparray
-        Readed value of image1.
-    img2 : type
-        Readed value of image2
-    img2_original : type
-        The original readed img2 for backup.
-    faces_landmark_points1 : list
-        landmark points of all the faces in image1.
-    faces_landmark_points2 : list
-        landmark points of all the faces in image2.
+    src_img : nparray
+        Readed value of src_image.
+    dst_img : type
+        Readed value of dst_image
+    dst_original_img : type
+        The original readed dst_img for backup.
+    src_faces_landmark_points : list
+        landmark points of all the faces in src_image.
+    dst_faces_landmark_points : list
+        landmark points of all the faces in dst_image.
     mode : str
         Choose either 'choose_largest_face' or 'apply_on_all'.
 
@@ -500,47 +502,46 @@ def chooseModes(img1, img2, img2_original, faces_landmark_points1, faces_landmar
 
     """
     # check if there is only a single face in the second image
-    if np.array(faces_landmark_points2).shape[0] == 1:
+    if np.array(dst_faces_landmark_points).shape[0] == 1:
         mode = LARGEST_FACE_MODE
 
     if mode == ALL_FACE_MODE:
-        faces = np.array(faces_landmark_points2).shape[0]
+        faces = np.array(dst_faces_landmark_points).shape[0]
         for face in range(faces):
-            landmark_points1 = faces_landmark_points1[0]
-            landmark_points2 = faces_landmark_points2[face]
+            src_landmark_points = src_faces_landmark_points[0]
+            dst_landmark_points = dst_faces_landmark_points[face]
 
             swappedImage = applyForBothModes(
-                img1, img2, img2_original, landmark_points1, landmark_points2)
-            img2_original = swappedImage
+                src_img, dst_img, dst_original_img, src_landmark_points, dst_landmark_points)
+            dst_original_img = swappedImage
     else:
         # find landmark points of the largest face in an image
-        landmark_points1 = choose_largest_face(faces_landmark_points1)
-        landmark_points2 = choose_largest_face(faces_landmark_points2)
+        src_landmark_points = choose_largest_face(src_faces_landmark_points)
+        dst_landmark_points = choose_largest_face(dst_faces_landmark_points)
 
         # match the direction of the two images
-        img1 = align_face_direction(
-            img1, landmark_points1, landmark_points2)
+        src_img = align_face_direction(
+            src_img, src_landmark_points, dst_landmark_points)
 
         # recompute lanmark points on the flipped image or new one.
-        faces_landmark_points1 = landmark_detection(img1)
-        landmark_points1 = choose_largest_face(faces_landmark_points1)
+        src_faces_landmark_points = landmark_detection(src_img)
+        src_landmark_points = choose_largest_face(src_faces_landmark_points)
 
         swappedImage = applyForBothModes(
-            img1, img2, img2_original, landmark_points1, landmark_points2)
+            src_img, dst_img, dst_original_img, src_landmark_points, dst_landmark_points)
 
     return swappedImage
 
 
-def faceSwap(img1, img2, mode="choose_largest_face", showImages=False):
+def faceSwap(src_img, dst_img, mode="choose_largest_face", showImages=False):
     """Warping all up.
-
     Parameters
     ----------
-    img1: nparray
-        Readed value of image1.
+    src_img: nparray
+        Readed value of src_image.
 
-    img2: nparray
-        Readed value of image2.
+    dst_img: nparray
+        Readed value of dst_image.
 
     showOriginalImages : bool
         An optional argument whether or not to show the original images.
@@ -552,18 +553,18 @@ def faceSwap(img1, img2, mode="choose_largest_face", showImages=False):
 
     """
 
-    # save the original image2
-    img2_original = np.copy(img2)
+    # save the original dst_image
+    dst_original_img = np.copy(dst_img)
 
     # find landmark points of the images
-    faces_landmark_points1 = landmark_detection(img1)
-    faces_landmark_points2 = landmark_detection(img2)
+    src_faces_landmark_points = landmark_detection(src_img)
+    dst_faces_landmark_points = landmark_detection(dst_img)
 
     swappedImage = chooseModes(
-        img1, img2, img2_original, faces_landmark_points1, faces_landmark_points2, mode)
+        src_img, dst_img, dst_original_img, src_faces_landmark_points, dst_faces_landmark_points, mode)
 
-    if showImages == True:
-        show_images(img1, img2_original, swappedImage,
+    if showImages:
+        show_images(src_img, dst_original_img, swappedImage,
                     showOriginalImages=True)
 
     return swappedImage
@@ -571,11 +572,11 @@ def faceSwap(img1, img2, mode="choose_largest_face", showImages=False):
 
 if __name__ == '__main__':
 
-    image1 = "images/kalise.jpg"
-    image2 = "images/black_and_white.jpg"
+    src_image = "faceswap/images/kalise.jpg"
+    dst_image = "faceswap/images/black_and_white.jpg"
 
-    img1 = cv2.imread(image1)
-    img2 = cv2.imread(image2)
+    src_img = cv2.imread(src_image)
+    dst_img = cv2.imread(dst_image)
 
-    swappedImage = faceSwap(img1, img2, mode="choose_largest_face",
+    swappedImage = faceSwap(src_img, dst_img, mode="choose_largest_face",
                             showImages=True)
