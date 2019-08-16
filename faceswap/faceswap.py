@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 import dlib
+from PIL import Image
 
 # type of modes to apply face swapping
 ALL_FACE_MODE = 'apply_on_all'
@@ -98,6 +99,15 @@ def choose_largest_face(faces_landmark_points):
     largest_face_landmark_points = faces_landmark_points[largest_face_index]
 
     return largest_face_landmark_points
+
+
+def crop_image(img, landmark_points):
+    boundingRect = cv2.boundingRect(np.array(landmark_points))
+
+    (x, y, w, h) = (boundingRect[0], boundingRect[1], boundingRect[2], boundingRect[3])
+    cropped_img = img[y: y + h, x: x + w]
+
+    return cropped_img
 
 
 def find_face_direction(landmark_points):
@@ -225,8 +235,15 @@ def calculateDelaunayTriangles(img, hull_points):
     # ? should we calculate all delanuay triangles
     (h, w, _) = img.shape
     rect = (0, 0, w, h)
+    # print("img shape: ", img.shape)
 
+    # boundingRect = cv2.boundingRect(np.array(hull_points))
+    # (x, y, w, h) = (boundingRect[0], boundingRect[1], boundingRect[2], boundingRect[3])
+    # rect = (0, 0, w, h)
+    # print(hull_points)
     subdiv = cv2.Subdiv2D(rect)
+    # for p in hull_points:
+    #     subdiv.insert(p)
     subdiv.insert(hull_points)
     triangleList = subdiv.getTriangleList()
 
@@ -254,12 +271,12 @@ def calculateDelaunayTriangles(img, hull_points):
     return delaunayTri_indexes
 
 
-def applyAffineTransform(src, srcTri_offset, dstTri_offset, dst_size):
+def applyAffineTransform(src_img_rect_roi, srcTri_offset, dstTri_offset, dst_size):
     """Warp src_image ROI using the convertion matrix.
 
     Parameters
     ----------
-    src : numpy.ndarray
+    src_img_rect_roi : numpy.ndarray
         src_image ROI which is to be warped.
     srcTri_offset : list
         single triangle points of src_image.
@@ -280,7 +297,7 @@ def applyAffineTransform(src, srcTri_offset, dstTri_offset, dst_size):
 
     # ? warping method
     (w, h) = dst_size
-    dst = cv2.warpAffine(src, warpMat, (w, h), None,
+    dst = cv2.warpAffine(src_img_rect_roi, warpMat, (w, h), None,
                          flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT_101)
 
     return dst
@@ -458,21 +475,39 @@ def applyForBothModes(src_img, dst_img, dst_original_img, src_landmark_points, d
         The swapped image.
 
     """
+    # find the cropped images
+    src_cropped_img = crop_image(src_img, src_landmark_points)
+    dst_cropped_img = crop_image(dst_img, dst_landmark_points)
+
+    # find landmark points of the cropped images
+    src_cropped_landmark_points = landmark_detection(src_cropped_img)[0]
+    dst_cropped_landmark_points = landmark_detection(dst_cropped_img)[0]
+
+    # match the direction of the two images
+    src_cropped_img = align_face_direction(
+        src_cropped_img, src_cropped_landmark_points, dst_cropped_landmark_points)
+
+    # recompute lanmark points on the flipped image or new one.
+    src_cropped_landmark_points = landmark_detection(src_cropped_img)[0]
+
     # find the convex hull bounding the landmark points of the images
-    src_hull_points, dst_hull_points = applyConvexHull(
-        src_landmark_points, dst_landmark_points)
+    src_cropped_hull_points, dst_cropped_hull_points = applyConvexHull(
+        src_cropped_landmark_points, dst_cropped_landmark_points)
+
+    # print(np.array(src_cropped_hull_points).shape)
+    # print(np.array(dst_cropped_hull_points).shape)
 
     # calculate the delauney triangulations
     # srcTri_indexes = calculateDelaunayTriangles(
-    #     src_img, src_hull_points)
-    dstTi_indexes = calculateDelaunayTriangles(
-        dst_img, dst_hull_points)
+    #     src_cropped_img, src_cropped_hull_points)
+    dstTri_indexes = calculateDelaunayTriangles(
+        dst_cropped_img, dst_cropped_hull_points)
 
     dst_warped_img = applyWarpTriangle(
-        src_img, dst_img, dstTi_indexes, src_hull_points, dst_hull_points)
+        src_cropped_img, dst_cropped_img, dstTri_indexes, src_cropped_hull_points, dst_cropped_hull_points)
 
     swappedImage = applySeamlessClone(
-        dst_warped_img, dst_original_img, dst_hull_points)
+        dst_warped_img, dst_original_img, dst_cropped_hull_points)
 
     return swappedImage
 
@@ -511,24 +546,14 @@ def chooseModes(src_img, dst_img, dst_original_img, src_faces_landmark_points, d
             src_landmark_points = src_faces_landmark_points[0]
             dst_landmark_points = dst_faces_landmark_points[face]
 
-            swappedImage = applyForBothModes(
-                src_img, dst_img, dst_original_img, src_landmark_points, dst_landmark_points)
+            swappedImage = applyForBothModes(src_img, dst_img, dst_original_img, src_landmark_points, dst_landmark_points)
             dst_original_img = swappedImage
     else:
         # find landmark points of the largest face in an image
         src_landmark_points = choose_largest_face(src_faces_landmark_points)
         dst_landmark_points = choose_largest_face(dst_faces_landmark_points)
 
-        # match the direction of the two images
-        src_img = align_face_direction(
-            src_img, src_landmark_points, dst_landmark_points)
-
-        # recompute lanmark points on the flipped image or new one.
-        src_faces_landmark_points = landmark_detection(src_img)
-        src_landmark_points = choose_largest_face(src_faces_landmark_points)
-
-        swappedImage = applyForBothModes(
-            src_img, dst_img, dst_original_img, src_landmark_points, dst_landmark_points)
+        swappedImage = applyForBothModes(src_img, dst_img, dst_original_img, src_landmark_points, dst_landmark_points)
 
     return swappedImage
 
@@ -552,7 +577,6 @@ def faceSwap(src_img, dst_img, mode="choose_largest_face", showImages=False):
         The swapped image.
 
     """
-
     # save the original dst_image
     dst_original_img = np.copy(dst_img)
 
