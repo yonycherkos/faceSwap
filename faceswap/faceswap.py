@@ -71,6 +71,84 @@ def landmark_detection(img):
     return faces_landmark_points
 
 
+def rectContains(rect, point):
+    """Check if a point is inside a rectangle.
+
+    Parameters
+    ----------
+    rect : tuple
+        Points of the rectangle edges.
+    point : tuple
+        List of points.
+
+    Returns
+    -------
+    bool
+        Return true if the points are inside rectangle else return false.
+
+    """
+    if point[0] < rect[0]:
+        return False
+    elif point[1] < rect[1]:
+        return False
+    elif point[0] > rect[0] + rect[2]:
+        return False
+    elif point[1] > rect[1] + rect[3]:
+        return False
+    return True
+
+
+def is_overlap(Rect1, Rect2):
+    """Check if two rectangle are overlapped.
+
+    Parameters
+    ----------
+    Rect1 : tuple
+        Points of the rectangle1 edges.
+    Rect2 : tuple
+        Points of the rectangle2 edges.
+
+    Returns
+    -------
+    bool
+        Return true is overlap else return false.
+
+    """
+    if rectContains(Rect1, Rect2) or rectContains(Rect2, Rect1):
+        return True
+    else:
+        return False
+
+
+def fix_landmark_overlap(faces_landmark_points):
+    """Disregared the overlapped faces(one of them).
+
+    Parameters
+    ----------
+    faces_landmark_points : list
+        Landmark points of each faces.
+
+    Returns
+    -------
+    bool
+        return the non overlapped faces landmark points.
+
+    """
+    none_overlap_faces_landmark_points = []
+    faces = len(faces_landmark_points)
+    overlapped_faces = []  # store the overlapped faces
+    for i in range(faces):
+        for j in range(faces):
+            # check if face[i] and face[j] are the same face and are not overlapped with any other faces
+            if (i == j) and (j not in overlapped_faces):
+                none_overlap_faces_landmark_points.append(faces_landmark_points[i])
+            # check if the bounding box are overlapped
+            elif is_overlap(cv2.boundingRect(faces_landmark_points[i]), cv2.boundingRect(faces_landmark_points[j])):
+                overlapped_faces.append(j)
+                continue
+    return none_overlap_faces_landmark_points
+
+
 def choose_largest_face(faces_landmark_points):
     """
     Choose largest face from all the faces in a given image.
@@ -560,8 +638,11 @@ def faceSwap(src_img, dst_img, mode="choose_largest_face", showImages=False):
     src_faces_landmark_points = landmark_detection(src_img)
     dst_faces_landmark_points = landmark_detection(dst_img)
 
+    non_overlap_src_faces_landmark_points = fix_landmark_overlap(src_faces_landmark_points)
+    non_overlap_dst_faces_landmark_points = fix_landmark_overlap(dst_faces_landmark_points)
+
     swappedImage = chooseModes(
-        src_img, dst_img, dst_original_img, src_faces_landmark_points, dst_faces_landmark_points, mode)
+        src_img, dst_img, dst_original_img, non_overlap_src_faces_landmark_points, non_overlap_dst_faces_landmark_points, mode)
 
     if showImages:
         show_images(src_img, dst_original_img, swappedImage,
@@ -572,11 +653,11 @@ def faceSwap(src_img, dst_img, mode="choose_largest_face", showImages=False):
 
 if __name__ == '__main__':
 
-    src_image = "faceswap/images/kalise.jpg"
-    dst_image = "faceswap/images/black_and_white.jpg"
+    src_image = "faceswap/images/yony.jpg"
+    dst_image = "faceswap/images/overlap.jpg"
 
     src_img = cv2.imread(src_image)
     dst_img = cv2.imread(dst_image)
 
-    swappedImage = faceSwap(src_img, dst_img, mode="choose_largest_face",
+    swappedImage = faceSwap(src_img, dst_img, mode="apply_on_all",
                             showImages=True)
