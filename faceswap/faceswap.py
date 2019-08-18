@@ -104,7 +104,7 @@ def choose_largest_face(faces_landmark_points):
 def crop_image(img, landmark_points):
     boundingRect = cv2.boundingRect(np.array(landmark_points))
 
-    (x, y, w, h) = (boundingRect[0], boundingRect[1], boundingRect[2], boundingRect[3])
+    (x, y, w, h) = boundingRect
     cropped_img = img[y: y + h, x: x + w]
 
     return cropped_img
