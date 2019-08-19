@@ -18,7 +18,7 @@ def shape_to_np_array(shape, points_num=NUMBER_OF_FACE_LANDMARKS, dtype="int32")
 
     Args:
         shape: dlib shape data type
-        dtype: numpy data type        
+        dtype: numpy data type
 
     Returns:
         np_array from dlib shape data type
@@ -72,6 +72,85 @@ def get_face_landmark_points(img):
         faces_landmark_points.append(landmark_points)
 
     return faces_landmark_points
+
+
+def rectContains(rect, point):
+    """Check if a point is inside a rectangle.
+
+    Parameters
+    ----------
+    rect : tuple
+        Points of the rectangle edges.
+    point : tuple
+        List of points.
+
+    Returns
+    -------
+    bool
+        Return true if the points are inside rectangle else return false.
+
+    """
+    if point[0] < rect[0]:
+        return False
+    elif point[1] < rect[1]:
+        return False
+    elif point[0] > rect[0] + rect[2]:
+        return False
+    elif point[1] > rect[1] + rect[3]:
+        return False
+    return True
+
+
+def is_overlap(Rect1, Rect2):
+    """Check if two rectangle are overlapped.
+
+    Parameters
+    ----------
+    Rect1 : tuple
+        Points of the rectangle1 edges.
+    Rect2 : tuple
+        Points of the rectangle2 edges.
+
+    Returns
+    -------
+    bool
+        Return true is overlap else return false.
+
+    """
+    if rectContains(Rect1, Rect2) or rectContains(Rect2, Rect1):
+        return True
+    else:
+        return False
+
+
+def fix_landmark_overlap(faces_landmark_points):
+    """Disregared the overlapped faces(one of them).
+
+    Parameters
+    ----------
+    faces_landmark_points : list
+        Landmark points of each faces.
+
+    Returns
+    -------
+    bool
+        return the non overlapped faces landmark points.
+
+    """
+    none_overlap_faces_landmark_points = []
+    faces = len(faces_landmark_points)
+    overlapped_faces = []  # store the overlapped faces
+    for i in range(faces):
+        for j in range(faces):
+            # check if face[i] and face[j] are the same face and are not overlapped with any other faces
+            if (i == j) and (j not in overlapped_faces):
+                none_overlap_faces_landmark_points.append(
+                    faces_landmark_points[i])
+            # check if the bounding box are overlapped
+            elif is_overlap(cv2.boundingRect(faces_landmark_points[i]), cv2.boundingRect(faces_landmark_points[j])):
+                overlapped_faces.append(j)
+                continue
+    return none_overlap_faces_landmark_points
 
 
 def choose_largest_face(faces_landmark_points):
@@ -467,6 +546,7 @@ def faceSwap(src_img, dst_img, mode=LARGEST_FACE_MODE, showImages=False):
     dst_faces_points = get_face_landmark_points(dst_img)
 
     # if only one face is gonna be replaced it is ultimately largest_face_mode
+    dst_faces_points = fix_landmark_overlap(dst_faces_points)
     dst_faces_num = len(dst_faces_points)
     if dst_faces_num == 1:
         mode = LARGEST_FACE_MODE
@@ -519,7 +599,6 @@ def show_images(img1, img2, swappedImage, showOriginalImages=False):
     deosn't return any value. it just display the images.
 
     """
-
     if showOriginalImages:
         cv2.imshow("image1", img1)
         cv2.imshow("image2", img2)
@@ -530,12 +609,11 @@ def show_images(img1, img2, swappedImage, showOriginalImages=False):
 
 
 if __name__ == '__main__':
-
-    image1 = "faceswap/images/kalise.jpg"
-    image2 = "faceswap/images/black_and_white.jpg"
+    image1 = "faceswap/images/yony.jpg"
+    image2 = "faceswap/images/overlap.jpg"
 
     src_img = cv2.imread(image1)
     dst_img = cv2.imread(image2)
 
-    swappedImage = faceSwap(
-        src_img, dst_img, mode="choose_largest_face", showImages=True)
+    swappedImage = faceSwap(src_img, dst_img, mode="apply_on_all",
+                            showImages=True)
