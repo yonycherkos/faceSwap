@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 import dlib
+from PIL import Image
 
 # type of modes to apply face swapping
 ALL_FACE_MODE = 'apply_on_all'
@@ -31,6 +32,32 @@ def shape_to_np_array(shape, points_num=NUMBER_OF_FACE_LANDMARKS, dtype="int32")
         np_array[i] = (shape.part(i).x, shape.part(i).y)
 
     return np_array
+
+
+def is_grey_scale(img):
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img_pil = Image.fromarray(img)
+    w, h = img_pil.size
+    for i in range(w):
+        for j in range(h):
+            r, g, b = img_pil.getpixel((i, j))
+            if r != g != b:
+                return False
+    return True
+
+
+def match_image_color(src_img, dst_img):
+    if is_grey_scale(src_img) is True and is_grey_scale(dst_img) is False:
+        dst_img_gray = cv2.cvtColor(dst_img, cv2.COLOR_BGR2GRAY)
+        dst_img_bw = cv2.cvtColor(dst_img_gray, cv2.COLOR_GRAY2BGR)
+        dst_img = dst_img_bw
+    elif is_grey_scale(src_img) is False and is_grey_scale(dst_img) is True:
+        src_img_gray = cv2.cvtColor(src_img, cv2.COLOR_BGR2GRAY)
+        src_img_bw = cv2.cvtColor(src_img_gray, cv2.COLOR_GRAY2BGR)
+        src_img = src_img_bw
+    else:
+        pass
+    return src_img, dst_img
 
 
 def get_face_landmark_points(img):
@@ -536,6 +563,9 @@ def faceSwap(src_img, dst_img, mode=LARGEST_FACE_MODE, showImages=False):
             The swapped image
     """
 
+    # match the color of the two image
+    src_img, dst_img = match_image_color(src_img, dst_img)
+
     # save the original dst img
     original_dst_img = np.copy(dst_img)
 
@@ -609,8 +639,8 @@ def show_images(img1, img2, swappedImage, showOriginalImages=False):
 
 
 if __name__ == '__main__':
-    image1 = "faceswap/images/yony.jpg"
-    image2 = "faceswap/images/overlap.jpg"
+    image1 = "faceswap/images/kalise.jpg"
+    image2 = "faceswap/images/black_and_white.jpg"
 
     src_img = cv2.imread(image1)
     dst_img = cv2.imread(image2)
