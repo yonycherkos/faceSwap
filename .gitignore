@@ -1,5 +1,8 @@
-.idea
 test.ipynb
+
+# IDE related
+.idea
+.vscode
 
 # ignoring image cleaning
 image_cleaning.py

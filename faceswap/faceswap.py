@@ -12,20 +12,25 @@ FACE_LANDMARK_SHAPE_DETECTOR_FILENAME = 'shape_predictor_68_face_landmarks.dat'
 NUMBER_OF_FACE_LANDMARKS = 68   # number of facelandmark points
 
 
-def shape_to_np_array(shape, dtype="int"):
+def shape_to_np_array(shape, points_num=NUMBER_OF_FACE_LANDMARKS, dtype="int32"):
     """
     Change shape data structure to np array
+
+    Args:
+        shape: dlib shape data type
+        dtype: numpy data type        
+
+    Returns:
+        np_array from dlib shape data type
     """
-    # initialize the list of (x, y)-coordinates
-    coords = np.zeros((NUMBER_OF_FACE_LANDMARKS, 2), dtype=dtype)
+    # initialize our nparray
+    np_array = np.zeros((points_num, 2), dtype=dtype)
 
-    # loop over the 68 facial landmarks and convert them
-    # to a 2-tuple of (x, y)-coordinates
-    for i in range(0, NUMBER_OF_FACE_LANDMARKS):
-        coords[i] = (shape.part(i).x, shape.part(i).y)
+    # loop over all points and convert them to (x, y) tuples
+    for i in range(points_num):
+        np_array[i] = (shape.part(i).x, shape.part(i).y)
 
-    # return the list of (x, y)-coordinates
-    return coords
+    return np_array
 
 
 def get_face_landmark_points(img):
@@ -190,14 +195,14 @@ def get_convex_hulls(src_face_points, dst_face_points):
 
     # use the minimum number of convex hull points to avoid index out of bound.
     # ? should we use larger or smaller(for the sake of only avoid index out of bound)
-    if len(src_hull_index) < len(dst_hull_index):
-        min_hull_index = src_hull_index
+    if len(src_hull_index) > len(dst_hull_index):
+        max_hull_index = src_hull_index
     else:
-        min_hull_index = dst_hull_index
+        max_hull_index = dst_hull_index
 
-    for i in range(len(min_hull_index)):
-        src_hull.append(src_face_points[int(min_hull_index[i])])
-        dst_hull.append(dst_face_points[int(min_hull_index[i])])
+    for i in range(len(max_hull_index)):
+        src_hull.append(src_face_points[int(max_hull_index[i])])
+        dst_hull.append(dst_face_points[int(max_hull_index[i])])
 
     return src_hull, dst_hull
 
@@ -232,7 +237,7 @@ def get_delaunay_triangles(img, points):
         vtx3 = (t[4], t[5])
         vertexes = [vtx1, vtx2, vtx3]
 
-        point_indexes = []  # ? this index
+        point_indexes = []
         # Get face-points (from 68 face detector) by coordinates
         for i in range(3):
             for j in range(0, len(points)):
@@ -240,16 +245,17 @@ def get_delaunay_triangles(img, points):
                     point_indexes.append(j)
                     break
         # Three points form a triangle
-        if len(point_indexes) == 3:
-            delaunay_triangle_indexes.append(
-                (point_indexes[0], point_indexes[1], point_indexes[2]))
+        assert(len(point_indexes) == 3)
+        delaunay_triangle_indexes.append(
+            (point_indexes[0], point_indexes[1], point_indexes[2]))
 
     return delaunay_triangle_indexes
 
 
-def replace_triangle(src_img, dst_img, src_tri_points, dst_tri_points):
+def replace_triangle(src_img, dst_img, src_tri_points, dst_tri_points, DEBUG=False):
     """
     Warp src_tri to dst_tri;then replace dst_tri portion of dst_img by src_tri portion of src_img
+    Changes dst_img by replacing the warped triangle
 
     Args:
         src_img: numpy.ndarray
@@ -263,45 +269,68 @@ def replace_triangle(src_img, dst_img, src_tri_points, dst_tri_points):
     """
 
     # Find bounding rectangle for each triangle
-    src_tri_rect = cv2.boundingRect(np.array(src_tri_points))
-    src_rect_x, src_rect_y, src_rect_w, src_rect_h = src_tri_rect
+    src_tri_roi = cv2.boundingRect(np.array(src_tri_points))
+    src_roi_x, src_roi_y, src_roi_w, src_roi_h = src_tri_roi
 
-    dst_tri_rect = cv2.boundingRect(np.array(dst_tri_points))
-    dst_rect_x, dst_rect_y, dst_rect_w, dst_rect_h = dst_tri_rect
+    dst_tri_roi = cv2.boundingRect(np.array(dst_tri_points))
+    dst_roi_x, dst_roi_y, dst_roi_w, dst_roi_h = dst_tri_roi
 
-    # Offset points by left top corner of the respective rectangles
+    # Transform points by left top corner of the respective rectangles
     transformed_src_tri = []
     transformed_dst_tri = []
 
+    if DEBUG:
+        dst_tri_vtxs = np.array(dst_tri_points)
+        dst_roi_vtxs = np.array([
+            (dst_roi_x, dst_roi_y),
+            (dst_roi_x+dst_roi_w, dst_roi_y),
+            (dst_roi_x+dst_roi_w, dst_roi_y+dst_roi_h),
+            (dst_roi_x, dst_roi_y+dst_roi_h)
+        ])
+        cv2.drawContours(dst_img, [dst_tri_vtxs], 0, (255, 0, 0), 1)
+        # cv2.drawContours(dst_img, [rect_vtxs], 0, (0, 0, 255), 1)
     for vtx_i in range(3):
+        if DEBUG:
+            cv2.circle(dst_img, tuple(dst_tri_points[vtx_i]), 2, (255, 0, 0))
+
         transformed_src_tri.append(
-            ((src_tri_points[vtx_i][0] - src_rect_x), (src_tri_points[vtx_i][1] - src_rect_y)))
+            ((src_tri_points[vtx_i][0] - src_roi_x), (src_tri_points[vtx_i][1] - src_roi_y)))
         transformed_dst_tri.append(
-            ((dst_tri_points[vtx_i][0] - dst_rect_x), (dst_tri_points[vtx_i][1] - dst_rect_y)))
+            ((dst_tri_points[vtx_i][0] - dst_roi_x), (dst_tri_points[vtx_i][1] - dst_roi_y)))
 
     # Apply warpImage to small rectangular patches
-    src_img_roi = src_img[src_rect_y:src_rect_y +
-                          src_rect_h, src_rect_x:src_rect_x + src_rect_w]
-
-    dst_dims = (dst_rect_w, dst_rect_h)  # size = (w, h) or (x, y)
+    src_img_roi = src_img[src_roi_y:src_roi_y +
+                          src_roi_h, src_roi_x:src_roi_x + src_roi_w]
 
     # find convertion matrix from src_tri to dst_tri
     warpMat = cv2.getAffineTransform(
         np.float32(transformed_src_tri), np.float32(transformed_dst_tri))
 
     # ? warping method
-    warped_src_img_roi = cv2.warpAffine(src_img_roi, warpMat, dst_dims, None,
-                                        flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT_101)
+    dst_roi_dims = (dst_roi_w, dst_roi_h)
+    warped_src_img_roi = cv2.warpAffine(src_img_roi, warpMat, dst_roi_dims, None,
+                                        flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
 
     # Get mask by filling triangle
-    mask = np.zeros((dst_rect_h, dst_rect_w, 3), dtype=np.float32)
-    cv2.fillConvexPoly(mask, np.int32(transformed_dst_tri), (1.0, 1.0, 1.0))
-    warped_src_img_roi = warped_src_img_roi * mask
+    warped_src_mask = np.zeros(
+        warped_src_img_roi.shape, warped_src_img_roi.dtype)
+    cv2.fillConvexPoly(warped_src_mask, np.int32(
+        transformed_dst_tri), (1, 1, 1))
+    warped_src_img_roi = warped_src_img_roi * warped_src_mask
 
     # Copy triangular region of the rectangular patch to the output image
-    dst_img[dst_rect_y:dst_rect_y + dst_rect_h, dst_rect_x:dst_rect_x + dst_rect_w] \
-        = dst_img[dst_rect_y:dst_rect_y + dst_rect_h, dst_rect_x:dst_rect_x + dst_rect_w] * ((1.0, 1.0, 1.0) - mask) + warped_src_img_roi
-    # img2[r2[1]:r2[1]+r2[3], r2[0]:r2[0]+r2[2]] = img2[r2[1]:r2[1]+r2[3], r2[0]:r2[0]+r2[2]] + img2Rect
+    dst_img_roi = dst_img[dst_roi_y:dst_roi_y +
+                          dst_roi_h, dst_roi_x:dst_roi_x + dst_roi_w]
+    dst_roi_mask = (1, 1, 1) - warped_src_mask
+    dst_img[dst_roi_y:dst_roi_y + dst_roi_h, dst_roi_x:dst_roi_x + dst_roi_w] \
+        = dst_img_roi * dst_roi_mask + warped_src_img_roi
+
+    if DEBUG:
+        cv2.imshow('warped_src_img_roi', warped_src_img_roi)
+        cv2.imshow('warped_src_mask', warped_src_mask)
+        cv2.imshow('dst_img_roi', dst_img_roi)
+        cv2.imshow('dst_img', dst_img)
+        cv2.waitKey()
 
 
 def replace_all_triangles(src_img, dst_img, dst_delaunay_triangle_indexes, src_points, dst_points):
@@ -310,6 +339,7 @@ def replace_all_triangles(src_img, dst_img, dst_delaunay_triangle_indexes, src_p
     corresponding landmark points of each triangles from the triangulations
     indexes. then warp each triangle of image1 to image2 by calling created
     warpTriangle function.
+    Changes dst_img by replacing all delaunay triangles
 
     Args:
         src_img: numpy.ndarray
@@ -330,48 +360,49 @@ def replace_all_triangles(src_img, dst_img, dst_delaunay_triangle_indexes, src_p
         dst_tri_points = []
 
         # iterate through all the three triangle indexes and find t1 and t2
-        for j in range(3):
+        for vtx_j in range(3):
             src_tri_points.append(
-                src_points[dst_delaunay_triangle_indexes[triangle_i][j]])
+                src_points[dst_delaunay_triangle_indexes[triangle_i][vtx_j]])
             dst_tri_points.append(
-                dst_points[dst_delaunay_triangle_indexes[triangle_i][j]])
+                dst_points[dst_delaunay_triangle_indexes[triangle_i][vtx_j]])
 
-        replace_triangle(src_img, dst_img, src_tri_points,  dst_tri_points)
+        replace_triangle(
+            src_img, dst_img, src_tri_points,  dst_tri_points)
 
 
-def apply_seamless_clone(src, dst, dst_points):
+def apply_seamless_clone(src_img, dst_img, dst_points):
     """
-    Crop portion of src image and copy it to dst image
+    Seamlessly clone portion of src image and copy it to dst image
 
     Args:
         src : type
             Description of parameter `src`.
         dst : type
             Description of parameter `dst`.
-        dst_points : type
-            Description of parameter `dstPoints`.
+        dst_points : list of ndarray
+            points where src will be placed on dst
 
     Returns:
         numpy.nparray
-            return portion image2 replaced by portion of image1.
+            portion dst replaced by portion of src
     """
 
     # calculate mask
-    mask = np.zeros(dst.shape, dtype=dst.dtype)
+    mask = np.zeros(dst_img.shape, dtype=dst_img.dtype)
     cv2.fillConvexPoly(mask, np.int32(dst_points), (255, 255, 255))
 
     # calculate center dst image where center of src image put
     x, y, w, h = cv2.boundingRect(np.float32([dst_points]))
-    dst_points_center = ((x + int(w / 2), y + int(h / 2)))
+    dst_points_center = ((x + round(w / 2), y + round(h / 2)))
 
     # ? check MIXED_CLONE mode
     swappedImage = cv2.seamlessClone(
-        src, dst, mask, dst_points_center, cv2.NORMAL_CLONE)
+        src_img, dst_img, mask, dst_points_center, cv2.NORMAL_CLONE)
 
     return swappedImage
 
 
-def applyForBothModes(src_img, dst_img, processed_dst_img, src_face_points, dst_face_points):
+def swap_using_landmark_points(src_img, dynamic_dst_img, original_dst_img, src_face_points, dst_face_points):
     """
     This function contain code tha will be use for both mode. inorder to avoid repetition
 
@@ -395,15 +426,14 @@ def applyForBothModes(src_img, dst_img, processed_dst_img, src_face_points, dst_
     src_hulls, dst_hulls = get_convex_hulls(src_face_points, dst_face_points)
 
     # calculate the delauney triangulations
-    # src_delaunay_hull_triples = get_delaunay_triangles(
-    #     src_img, src_hulls)
-    dst_delaunay_triangle_indexes = get_delaunay_triangles(dst_img, dst_hulls)
+    dst_delaunay_triangle_indexes = get_delaunay_triangles(
+        dynamic_dst_img, dst_hulls)
 
     replace_all_triangles(
-        src_img, dst_img, dst_delaunay_triangle_indexes, src_hulls, dst_hulls)
+        src_img, dynamic_dst_img, dst_delaunay_triangle_indexes, src_hulls, dst_hulls)
 
     swapped_image = apply_seamless_clone(
-        dst_img, processed_dst_img, dst_hulls)
+        dynamic_dst_img, original_dst_img, dst_hulls)
 
     return swapped_image
 
@@ -428,7 +458,7 @@ def faceSwap(src_img, dst_img, mode=LARGEST_FACE_MODE, showImages=False):
     """
 
     # save the original dst img
-    processed_dst_img = np.copy(dst_img)
+    original_dst_img = np.copy(dst_img)
 
     # find landmark points of the images
     all_src_faces_points = get_face_landmark_points(src_img)
@@ -445,9 +475,9 @@ def faceSwap(src_img, dst_img, mode=LARGEST_FACE_MODE, showImages=False):
         for face_i in range(dst_faces_num):
             dst_face_i_points = dst_faces_points[face_i]
 
-            swappedImage = applyForBothModes(
-                src_img, dst_img, processed_dst_img, src_face_points, dst_face_i_points)
-            processed_dst_img = swappedImage
+            swappedImage = swap_using_landmark_points(
+                src_img, dst_img, original_dst_img, src_face_points, dst_face_i_points)
+            original_dst_img = swappedImage
     else:
         # find landmark points of the largest face in an image
         large_dst_face_points = choose_largest_face(dst_faces_points)
@@ -461,11 +491,11 @@ def faceSwap(src_img, dst_img, mode=LARGEST_FACE_MODE, showImages=False):
         all_src_face_points = get_face_landmark_points(src_img)
         src_face_points = choose_largest_face(all_src_face_points)
 
-        swappedImage = applyForBothModes(
-            src_img, dst_img, processed_dst_img, src_face_points, large_dst_face_points)
+        swappedImage = swap_using_landmark_points(
+            src_img, dst_img, original_dst_img, src_face_points, large_dst_face_points)
 
     if showImages == True:
-        show_images(src_img, processed_dst_img, swappedImage,
+        show_images(src_img, original_dst_img, swappedImage,
                     showOriginalImages=True)
 
     return swappedImage
@@ -507,5 +537,5 @@ if __name__ == '__main__':
     img1 = cv2.imread(image1)
     img2 = cv2.imread(image2)
 
-    swappedImage = faceSwap(img1, img2, mode="choose_largest_face",
-                            showImages=True)
+    swappedImage = faceSwap(
+        img1, img2, mode="choose_largest_face", showImages=True)
