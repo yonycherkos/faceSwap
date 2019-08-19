@@ -187,13 +187,13 @@ def get_convex_hulls(src_face_points, dst_face_points):
     """
 
     # Find convex hull of the two landmark points
-    src_hull = []
-    dst_hull = []
+    src_hull_points = []
+    dst_hull_points = []
 
     src_hull_index = cv2.convexHull(src_face_points, returnPoints=False)
     dst_hull_index = cv2.convexHull(dst_face_points, returnPoints=False)
 
-    # use the minimum number of convex hull points to avoid index out of bound.
+    # use the max number of convex hull points.
     # ? should we use larger or smaller(for the sake of only avoid index out of bound)
     if len(src_hull_index) > len(dst_hull_index):
         max_hull_index = src_hull_index
@@ -201,10 +201,10 @@ def get_convex_hulls(src_face_points, dst_face_points):
         max_hull_index = dst_hull_index
 
     for i in range(len(max_hull_index)):
-        src_hull.append(src_face_points[int(max_hull_index[i])])
-        dst_hull.append(dst_face_points[int(max_hull_index[i])])
+        src_hull_points.append(src_face_points[int(max_hull_index[i])])
+        dst_hull_points.append(dst_face_points[int(max_hull_index[i])])
 
-    return src_hull, dst_hull
+    return src_hull_points, dst_hull_points
 
 
 def get_delaunay_triangles(img, points):
@@ -222,8 +222,8 @@ def get_delaunay_triangles(img, points):
             triple indexes of points that form delanauy triangles
     """
     # ? should we calculate all delanuay triangles
-
-    rect = (0, 0, img.shape[1], img.shape[0])
+    (h, w, _) = img.shape
+    rect = (0, 0, w, h)
 
     subdiv = cv2.Subdiv2D(rect)
     subdiv.insert(points)
@@ -534,8 +534,8 @@ if __name__ == '__main__':
     image1 = "faceswap/images/kalise.jpg"
     image2 = "faceswap/images/black_and_white.jpg"
 
-    img1 = cv2.imread(image1)
-    img2 = cv2.imread(image2)
+    src_img = cv2.imread(image1)
+    dst_img = cv2.imread(image2)
 
     swappedImage = faceSwap(
-        img1, img2, mode="choose_largest_face", showImages=True)
+        src_img, dst_img, mode="choose_largest_face", showImages=True)
