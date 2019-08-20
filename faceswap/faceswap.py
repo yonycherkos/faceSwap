@@ -29,24 +29,20 @@ def shape_to_np_array(shape, dtype="int"):
     return coords
 
 
-def is_grey_scale(img):
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    img_pil = Image.fromarray(img)
-    w, h = img_pil.size
-    for i in range(w):
-        for j in range(h):
-            r, g, b = img_pil.getpixel((i, j))
-            if r != g != b:
-                return False
-    return True
+def is_black_and_white(img):
+    img_arr = np.array(img)
+    channel_colors_match = (img_arr[:, :, 0] == img_arr[:, :, 1]) == (img_arr[:, :, 1] == img_arr[:, :, 2])
+    if channel_colors_match.all() == True:
+        return True
+    return False
 
 
 def match_image_color(src_img, dst_img):
-    if is_grey_scale(src_img) is True and is_grey_scale(dst_img) is False:
+    if is_black_and_white(src_img) is True and is_black_and_white(dst_img) is False:
         dst_img_gray = cv2.cvtColor(dst_img, cv2.COLOR_BGR2GRAY)
         dst_img_bw = cv2.cvtColor(dst_img_gray, cv2.COLOR_GRAY2BGR)
         dst_img = dst_img_bw
-    elif is_grey_scale(src_img) is False and is_grey_scale(dst_img) is True:
+    elif is_black_and_white(src_img) is False and is_black_and_white(dst_img) is True:
         src_img_gray = cv2.cvtColor(src_img, cv2.COLOR_BGR2GRAY)
         src_img_bw = cv2.cvtColor(src_img_gray, cv2.COLOR_GRAY2BGR)
         src_img = src_img_bw
