@@ -71,7 +71,24 @@ def match_image_color(src_img, dst_img):
     return src_img, dst_img
 
 
-def get_face_landmark_points(img, arg_img_type):
+def preprocess_images(src_img, dst_img):
+    """
+    All required preprocess for both images
+
+    Args: 
+        src_img: cvimage
+        dst_img: cvimage
+
+    Returns:
+        cvimage: preprocessed src_img
+        cvimage: preprocessed dst_img
+    """
+    src_img, dst_img = match_image_color(src_img, dst_img)
+
+    return src_img, dst_img
+
+
+def get_face_landmark_points(img, arg_img_type, largest_only=False):
     """
     Generate facial landmark points of a given image
 
@@ -80,10 +97,13 @@ def get_face_landmark_points(img, arg_img_type):
             Readed value of an image
         arg_image_type: str from { 'face', 'meme' }
             wherther img is input face image or meme image for error message purposes
+        largest_only: boolean
+            return the largest face only
 
     Returns:
-        list of nparrays:
+        list of nparrays or an nparray:
             list of landmark points for every face in a given image
+            or a single landmark points for largest face if largest only
     """
 
     # convert the image to greyscaleprint("land here")
@@ -114,6 +134,11 @@ def get_face_landmark_points(img, arg_img_type):
         landmarks = predictor(img_gray, face)
         landmark_points = shape_to_np_array(landmarks)
         faces_landmark_points.append(landmark_points)
+
+    if largest_only:
+        faces_landmark_points = choose_largest_face(faces_landmark_points)
+    elif len(faces_landmark_points) > 1:
+        faces_landmark_points = fix_landmark_overlap(faces_landmark_points)
 
     return faces_landmark_points
 
@@ -313,46 +338,48 @@ def get_convex_hulls(src_face_points, dst_face_points):
     src_hull_points = []
     dst_hull_points = []
 
-    src_hull_index = cv2.convexHull(src_face_points, returnPoints=False)
-    dst_hull_index = cv2.convexHull(dst_face_points, returnPoints=False)
+    src_hull_indexes = cv2.convexHull(src_face_points, returnPoints=False)
+    dst_hull_indexes = cv2.convexHull(dst_face_points, returnPoints=False)
 
     # use the max number of convex hull points.
     # ? should we use larger or smaller(for the sake of only avoid index out of bound)
-    if len(src_hull_index) > len(dst_hull_index):
-        max_hull_index = src_hull_index
+    if len(src_hull_indexes) > len(dst_hull_indexes):
+        max_hull_indexes = src_hull_indexes
     else:
-        max_hull_index = dst_hull_index
+        max_hull_indexes = dst_hull_indexes
 
-    for i in range(len(max_hull_index)):
-        src_hull_points.append(src_face_points[int(max_hull_index[i])])
-        dst_hull_points.append(dst_face_points[int(max_hull_index[i])])
+    for i in range(len(max_hull_indexes)):
+        src_hull_points.append(src_face_points[int(max_hull_indexes[i])])
+        dst_hull_points.append(dst_face_points[int(max_hull_indexes[i])])
 
     return src_hull_points, dst_hull_points
 
 
-def get_delaunay_triangles(img, points):
+def get_corresponding_delaunays(src_points, dst_points, use_dst=True):
     """
-    Calculate delauney triangles of a given points
+    Calculate corresponding delauney triangles of a src and dst points
 
     Args:
-        img : nparray
-            image
-        points : list
-            points to form delaunay triangles
+        src_points : list of nparray
+        dst_points : list of nparray   
+        use_dst : if to use dst_points for triangle calculation
 
     Returns:
-        list:
-            triple indexes of points that form delanauy triangles
+        tuple:
+            0: src delauney triangles list
+            1: dst delauney triangles list
     """
     # ? should we calculate all delanuay triangles
-    (h, w, _) = img.shape
-    rect = (0, 0, w, h)
+    # which points use calculating delanauy triangles
+    points = dst_points if use_dst else src_points
+    points_rect = cv2.boundingRect(np.array(points))
 
-    subdiv = cv2.Subdiv2D(rect)
+    subdiv = cv2.Subdiv2D(points_rect)
     subdiv.insert(points)
     triangleList = subdiv.getTriangleList()
 
-    delaunay_triangle_indexes = []
+    src_delaunay_tris = []
+    dst_delaunay_tris = []
 
     for t in triangleList:
         vtx1 = (t[0], t[1])
@@ -360,19 +387,65 @@ def get_delaunay_triangles(img, points):
         vtx3 = (t[4], t[5])
         vertexes = [vtx1, vtx2, vtx3]
 
-        point_indexes = []
+        src_triangle = []
+        dst_triangle = []
         # Get face-points (from 68 face detector) by coordinates
         for i in range(3):
             for j in range(0, len(points)):
                 if(vertexes[i][0] == points[j][0] and vertexes[i][1] == points[j][1]):
-                    point_indexes.append(j)
+                    src_triangle.append(src_points[j])
+                    dst_triangle.append(dst_points[j])
                     break
         # Three points form a triangle
-        assert(len(point_indexes) == 3)
-        delaunay_triangle_indexes.append(
-            (point_indexes[0], point_indexes[1], point_indexes[2]))
+        assert(len(src_triangle) == 3 and len(dst_triangle) == 3)
+        src_delaunay_tris.append(src_triangle)
+        dst_delaunay_tris.append(dst_triangle)
 
-    return delaunay_triangle_indexes
+    return src_delaunay_tris, dst_delaunay_tris
+
+
+def extract_face(img, face_points):
+    """
+    Crop image based on face_points to extract face 
+    and transform face points corresponding to the cropped image
+
+    Args:
+        img: cvimage
+        face_points: landmark points of face in img
+
+    Returns:
+        tuple:
+            0: cropped cvimage
+            1: cropped image box in [x,y,w,h] format
+    """
+    x, y, w, h = cv2.boundingRect(face_points)
+
+    face_points[:, 0] -= x
+    face_points[:, 1] -= y
+
+    cropped_img = img[y:y+h, x:x+w]
+
+    return cropped_img, [x, y, w, h]
+
+
+def put_image(big_img, small_img, box):
+    """
+    Puts a small image on a big image at specified box
+
+    Args:
+        big_img: cvimage
+        small_img: cvimage
+        box: where to put image in [x,y,w,h] format
+             w and h must be the same with small_img width and height
+
+    Returns:
+        changed cvimage
+    """
+    x, y, w, h = box
+    assert(h == small_img.shape[0] and w == small_img.shape[1])
+    big_img[y:y+h, x:x+w] = small_img
+
+    return big_img
 
 
 def replace_triangle(src_img, dst_img, src_tri_points, dst_tri_points, DEBUG=False):
@@ -456,7 +529,7 @@ def replace_triangle(src_img, dst_img, src_tri_points, dst_tri_points, DEBUG=Fal
         cv2.waitKey()
 
 
-def replace_all_triangles(src_img, dst_img, dst_delaunay_triangle_indexes, src_points, dst_points):
+def replace_all_triangles(src_img, dst_img, src_tris, dst_tris):
     """
     Compute warp triangles for each triangles of image1 and image2.first find.
     corresponding landmark points of each triangles from the triangulations
@@ -466,66 +539,54 @@ def replace_all_triangles(src_img, dst_img, dst_delaunay_triangle_indexes, src_p
 
     Args:
         src_img: numpy.ndarray
-            src_img
         dst_img: numpy.ndarray
-            dst_img
-        dst_delaunay_triple_indexes : list
-            triplewise indexes that form delaunay triangle of dst_points
-        src_points : list
-            src_img points corresponding to dst_img
-        dst_points : list
-            dst_img points corresponding to src_img
+        src_tris : list
+            triangles for src image
+        dst_tris : list
+            triangles for dst image
     """
 
     # iterate through each triangles
-    for triangle_i in range(len(dst_delaunay_triangle_indexes)):
-        src_tri_points = []
-        dst_tri_points = []
-
-        # iterate through all the three triangle indexes and find t1 and t2
-        for vtx_j in range(3):
-            src_tri_points.append(
-                src_points[dst_delaunay_triangle_indexes[triangle_i][vtx_j]])
-            dst_tri_points.append(
-                dst_points[dst_delaunay_triangle_indexes[triangle_i][vtx_j]])
-
+    for triangle_i in range(len(src_tris)):
         replace_triangle(
-            src_img, dst_img, src_tri_points,  dst_tri_points)
+            src_img, dst_img, src_tris[triangle_i],  dst_tris[triangle_i])
 
 
-def apply_seamless_clone(src_img, dst_img, dst_points):
+def apply_seamless_clone(src_img, dst_img, src_points, DEBUG=False):
     """
     Seamlessly clone portion of src image and copy it to dst image
 
     Args:
-        src : type
-            Description of parameter `src`.
-        dst : type
-            Description of parameter `dst`.
-        dst_points : list of ndarray
-            points where src will be placed on dst
+        src_img : cvimage
+        dst_img : cvimage
+        src_points : list of ndarray
+            points used to creat mask where src_img will be placed on dst_img
 
     Returns:
         numpy.nparray
-            portion dst replaced by portion of src
+            dst_img replaced by portion of src_img
     """
+    assert(src_img.shape == dst_img.shape)
+    # calculate center dst image where center of src image put
+    h = dst_img.shape[0]
+    w = dst_img.shape[1]
+    dst_points_center = ((round(w / 2), round(h / 2)))
 
     # calculate mask
-    mask = np.zeros(dst_img.shape, dtype=dst_img.dtype)
-    cv2.fillConvexPoly(mask, np.int32(dst_points), (255, 255, 255))
-
-    # calculate center dst image where center of src image put
-    x, y, w, h = cv2.boundingRect(np.float32([dst_points]))
-    dst_points_center = ((x + round(w / 2), y + round(h / 2)))
+    mask = np.zeros(src_img.shape, dtype=dst_img.dtype)
+    cv2.fillConvexPoly(mask, np.int32(src_points), (255, 255, 255))
 
     # ? check MIXED_CLONE mode
     swappedImage = cv2.seamlessClone(
         src_img, dst_img, mask, dst_points_center, cv2.NORMAL_CLONE)
+    if DEBUG:
+        cv2.imshow('swap', swappedImage)
+        cv2.waitKey(0)
 
     return swappedImage
 
 
-def swap_using_landmark_points(src_img, dynamic_dst_img, original_dst_img, src_face_points, dst_face_points):
+def swap_using_points(src_img, dst_img, src_points, dst_points):
     """
     This function contain code tha will be use for both mode. inorder to avoid repetition
 
@@ -545,20 +606,33 @@ def swap_using_landmark_points(src_img, dynamic_dst_img, original_dst_img, src_f
         numpy.ndarray
             The swapped image
     """
-    # find the convex hull bounding the landmark points of the images
-    src_hulls, dst_hulls = get_convex_hulls(src_face_points, dst_face_points)
 
     # calculate the delauney triangulations
-    dst_delaunay_triangle_indexes = get_delaunay_triangles(
-        dynamic_dst_img, dst_hulls)
+    src_delaunays, dst_delaunays = get_corresponding_delaunays(
+        src_points, dst_points, use_dst=True)
+
+    dst_img_copy = np.copy(dst_img)
 
     replace_all_triangles(
-        src_img, dynamic_dst_img, dst_delaunay_triangle_indexes, src_hulls, dst_hulls)
+        src_img, dst_img, src_delaunays, dst_delaunays)
 
-    swapped_image = apply_seamless_clone(
-        dynamic_dst_img, original_dst_img, dst_hulls)
+    dst_img = apply_seamless_clone(dst_img, dst_img_copy, dst_points)
 
-    return swapped_image
+    return dst_img
+
+
+def swap_a_face(src_img, dst_img, src_face_points, dst_face_points):
+    """
+    Swap a single face
+    """
+    # find the convex hull bounding the landmark points of the images
+    src_hulls, dst_hulls = get_convex_hulls(
+        src_face_points, dst_face_points)
+
+    swapped_img = swap_using_points(
+        src_img, dst_img, src_hulls, dst_hulls)
+
+    return swapped_img
 
 
 def faceSwap(src_img, dst_img, mode=LARGEST_FACE_MODE, showImages=False):
@@ -579,15 +653,15 @@ def faceSwap(src_img, dst_img, mode=LARGEST_FACE_MODE, showImages=False):
         nparray:
             The swapped image
     """
-    # match the color of the two image
-    src_img, dst_img = match_image_color(src_img, dst_img)
+    # preprocess images
+    src_img, dst_img = preprocess_images(src_img, dst_img)
 
     # save the original dst img
-    original_dst_img = np.copy(dst_img)
+    dst_img_copy = np.copy(dst_img)
 
     # find landmark points of the images
-    all_src_faces_points = get_face_landmark_points(src_img, ARG_IMG_SRC)
-    src_face_points = choose_largest_face(all_src_faces_points)
+    src_face_points = get_face_landmark_points(
+        src_img, ARG_IMG_SRC, largest_only=True)
 
     dst_faces_points = get_face_landmark_points(dst_img, ARG_IMG_DST)
 
@@ -595,19 +669,22 @@ def faceSwap(src_img, dst_img, mode=LARGEST_FACE_MODE, showImages=False):
     dst_faces_num = len(dst_faces_points)
     if dst_faces_num == 1:
         mode = LARGEST_FACE_MODE
-    else:   # fix if different faces overlap
-        dst_faces_points = fix_landmark_overlap(dst_faces_points)
 
     if mode == ALL_FACE_MODE:
         for face_i in range(dst_faces_num):
             dst_face_i_points = dst_faces_points[face_i]
+            dst_face_i, crop_box_i = extract_face(dst_img, dst_face_i_points)
+            src_face_i, _ = extract_face(src_img, src_face_points)
 
-            swappedImage = swap_using_landmark_points(
-                src_img, dst_img, original_dst_img, src_face_points, dst_face_i_points)
-            original_dst_img = swappedImage
+            swappedImage = swap_a_face(
+                src_face_i, dst_face_i, src_face_points, dst_face_i_points)
+
+            dst_img_copy = put_image(
+                dst_img_copy, swappedImage, crop_box_i)
     else:
         # find landmark points of the largest face in an image
         large_dst_face_points = choose_largest_face(dst_faces_points)
+        dst_face_i, crop_box_i = extract_face(dst_img, large_dst_face_points)
 
         # match the direction of the two images
         src_img = align_face_direction(
@@ -617,12 +694,15 @@ def faceSwap(src_img, dst_img, mode=LARGEST_FACE_MODE, showImages=False):
         # ? don't need to recompute, flip points too
         all_src_face_points = get_face_landmark_points(src_img, ARG_IMG_SRC)
         src_face_points = choose_largest_face(all_src_face_points)
+        src_face_i, _ = extract_face(src_img, src_face_points)
 
-        swappedImage = swap_using_landmark_points(
-            src_img, dst_img, original_dst_img, src_face_points, large_dst_face_points)
+        swappedImage = swap_a_face(
+            src_face_i, dst_face_i, src_face_points, large_dst_face_points)
+        dst_img_copy = put_image(
+            dst_img_copy, swappedImage, crop_box_i)
 
     if showImages == True:
-        show_images(src_img, original_dst_img, swappedImage,
+        show_images(src_img, dst_img_copy, swappedImage,
                     showOriginalImages=True)
 
     return swappedImage
