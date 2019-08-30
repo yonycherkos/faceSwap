@@ -2,15 +2,29 @@ import numpy as np
 import cv2
 import dlib
 from PIL import Image
+import grpc
 
 # type of modes to apply face swapping
 ALL_FACE_MODE = 'apply_on_all'
 LARGEST_FACE_MODE = 'choose_largest_face'
 
+# type of image arguments for referring image in error messages
+ARG_IMG_SRC = 'face'
+ARG_IMG_DST = 'meme'
+
 # model file name for face landmark detection in dlib library
 FACE_LANDMARK_SHAPE_DETECTOR_FILENAME = 'shape_predictor_68_face_landmarks.dat'
 
 NUMBER_OF_FACE_LANDMARKS = 68   # number of facelandmark points
+
+
+class GRPCException(Exception):
+    def __init__(self, code, message):
+        self.code = code
+        self.message = message
+
+    def __str__(self):
+        return "GRPC Exception {}: {}".format(self.code, self.message)
 
 
 def shape_to_np_array(shape, points_num=NUMBER_OF_FACE_LANDMARKS, dtype="int32"):
@@ -36,7 +50,8 @@ def shape_to_np_array(shape, points_num=NUMBER_OF_FACE_LANDMARKS, dtype="int32")
 
 def is_black_and_white(img):
     img_arr = np.array(img)
-    channel_colors_match = (img_arr[:, :, 0] == img_arr[:, :, 1]) == (img_arr[:, :, 1] == img_arr[:, :, 2])
+    channel_colors_match = (img_arr[:, :, 0] == img_arr[:, :, 1]) == (
+        img_arr[:, :, 1] == img_arr[:, :, 2])
     if channel_colors_match.all() == True:
         return True
     return False
@@ -56,13 +71,15 @@ def match_image_color(src_img, dst_img):
     return src_img, dst_img
 
 
-def get_face_landmark_points(img):
+def get_face_landmark_points(img, arg_img_type):
     """
     Generate facial landmark points of a given image
 
     Args:
         img: nparray
             Readed value of an image
+        arg_image_type: str from { 'face', 'meme' }
+            wherther img is input face image or meme image for error message purposes
 
     Returns:
         list of nparrays:
@@ -73,7 +90,9 @@ def get_face_landmark_points(img):
     try:
         img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     except Exception:
-        raise ValueError("Image could not be converted to grayscale")
+        raise GRPCException(
+            "{} image could not be converted to grayscale. "
+            "Please, check if appropriate image is selected".format(arg_img_type))
 
     # detect the face then find the landmarks points
     detector = dlib.get_frontal_face_detector()
@@ -81,12 +100,14 @@ def get_face_landmark_points(img):
         predictor = dlib.shape_predictor(
             FACE_LANDMARK_SHAPE_DETECTOR_FILENAME)
     except Exception:
-        raise ValueError(
-            "Facial landmark points file cann't be found. Download 'shape_predictor_68_face_landmarks.dat'")
+        raise GRPCException(grpc.StatusCode.FAILED_PRECONDITION,
+                            "Facial landmark points file cann't be found. "
+                            "Download 'shape_predictor_68_face_landmarks.dat'")
 
     faces = detector(img_gray)
     if len(faces) == 0:
-        raise ValueError('No face could be detected.')
+        raise GRPCException(grpc.StatusCode.FAILED_PRECONDITION,
+                            'No face could be detected from {} image input.'.format(arg_img_type))
 
     faces_landmark_points = []
     for face in faces:
@@ -558,7 +579,6 @@ def faceSwap(src_img, dst_img, mode=LARGEST_FACE_MODE, showImages=False):
         nparray:
             The swapped image
     """
-
     # match the color of the two image
     src_img, dst_img = match_image_color(src_img, dst_img)
 
@@ -566,16 +586,17 @@ def faceSwap(src_img, dst_img, mode=LARGEST_FACE_MODE, showImages=False):
     original_dst_img = np.copy(dst_img)
 
     # find landmark points of the images
-    all_src_faces_points = get_face_landmark_points(src_img)
+    all_src_faces_points = get_face_landmark_points(src_img, ARG_IMG_SRC)
     src_face_points = choose_largest_face(all_src_faces_points)
 
-    dst_faces_points = get_face_landmark_points(dst_img)
+    dst_faces_points = get_face_landmark_points(dst_img, ARG_IMG_DST)
 
     # if only one face is gonna be replaced it is ultimately largest_face_mode
-    dst_faces_points = fix_landmark_overlap(dst_faces_points)
     dst_faces_num = len(dst_faces_points)
     if dst_faces_num == 1:
         mode = LARGEST_FACE_MODE
+    else:   # fix if different faces overlap
+        dst_faces_points = fix_landmark_overlap(dst_faces_points)
 
     if mode == ALL_FACE_MODE:
         for face_i in range(dst_faces_num):
@@ -594,7 +615,7 @@ def faceSwap(src_img, dst_img, mode=LARGEST_FACE_MODE, showImages=False):
 
         # recompute lanmark points on the flipped image or new one.
         # ? don't need to recompute, flip points too
-        all_src_face_points = get_face_landmark_points(src_img)
+        all_src_face_points = get_face_landmark_points(src_img, ARG_IMG_SRC)
         src_face_points = choose_largest_face(all_src_face_points)
 
         swappedImage = swap_using_landmark_points(
