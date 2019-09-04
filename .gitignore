@@ -1,5 +1,8 @@
 test.ipynb
 
+# Mac related
+.DS_Store
+
 # IDE related
 .idea
 .vscode
