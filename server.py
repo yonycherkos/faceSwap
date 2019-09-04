@@ -6,7 +6,8 @@ import image_swap_pb2
 import image_swap_pb2_grpc
 
 from base64_conversion import np_img_from_base64, base64_from_np_img
-from faceswap.faceswap import faceSwap, GRPCException
+from faceswap.utils import GRPCException
+from faceswap.face_swapping import swap_faces
 
 
 class FaceSwapServicer(image_swap_pb2_grpc.FaceSwapServicer):
@@ -28,7 +29,7 @@ class FaceSwapServicer(image_swap_pb2_grpc.FaceSwapServicer):
 
         # swap faces
         try:
-            result = faceSwap(inputImage, memeImage, mode=mode)
+            result = swap_faces(inputImage, memeImage, mode=mode)
         except GRPCException as rpc_exception:
             # custom Exception to respond for application specific errors
             context.set_code(rpc_exception.code)

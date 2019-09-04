@@ -1,51 +1,11 @@
 import numpy as np
 import cv2
-import dlib
 from PIL import Image
-import grpc
 
-# type of modes to apply face swapping
-ALL_FACE_MODE = 'apply_on_all'
-LARGEST_FACE_MODE = 'choose_largest_face'
-
-# type of image arguments for referring image in error messages
-ARG_IMG_SRC = 'face'
-ARG_IMG_DST = 'meme'
-
-# model file name for face landmark detection in dlib library
-FACE_LANDMARK_SHAPE_DETECTOR_FILENAME = 'shape_predictor_68_face_landmarks.dat'
-
-NUMBER_OF_FACE_LANDMARKS = 68   # number of facelandmark points
-
-
-class GRPCException(Exception):
-    def __init__(self, code, message):
-        self.code = code
-        self.message = message
-
-    def __str__(self):
-        return "GRPC Exception {}: {}".format(self.code, self.message)
-
-
-def shape_to_np_array(shape, points_num=NUMBER_OF_FACE_LANDMARKS, dtype="int32"):
-    """
-    Change shape data structure to np array
-
-    Args:
-        shape: dlib shape data type
-        dtype: numpy data type
-
-    Returns:
-        np_array from dlib shape data type
-    """
-    # initialize our nparray
-    np_array = np.zeros((points_num, 2), dtype=dtype)
-
-    # loop over all points and convert them to (x, y) tuples
-    for i in range(points_num):
-        np_array[i] = (shape.part(i).x, shape.part(i).y)
-
-    return np_array
+from face_detection import get_face_landmark_points
+from face_alignment import align_src_img_direction
+from utils import LARGEST_FACE_MODE, ARG_IMG_SRC, ARG_IMG_DST, \
+    extract_face, put_image
 
 
 def is_black_and_white(img):
@@ -75,7 +35,7 @@ def preprocess_images(src_img, dst_img):
     """
     All required preprocess for both images
 
-    Args: 
+    Args:
         src_img: cvimage
         dst_img: cvimage
 
@@ -86,235 +46,6 @@ def preprocess_images(src_img, dst_img):
     src_img, dst_img = match_image_color(src_img, dst_img)
 
     return src_img, dst_img
-
-
-def get_face_landmark_points(img, arg_img_type, largest_only=False):
-    """
-    Generate facial landmark points of a given image
-
-    Args:
-        img: nparray
-            Readed value of an image
-        arg_image_type: str from { 'face', 'meme' }
-            wherther img is input face image or meme image for error message purposes
-        largest_only: boolean
-            return the largest face only
-
-    Returns:
-        list of nparrays or an nparray:
-            list of landmark points for every face in a given image
-            or a single landmark points for largest face if largest only
-    """
-
-    # convert the image to greyscaleprint("land here")
-    try:
-        img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    except Exception:
-        raise GRPCException(
-            "{} image could not be converted to grayscale. "
-            "Please, check if appropriate image is selected".format(arg_img_type))
-
-    # detect the face then find the landmarks points
-    detector = dlib.get_frontal_face_detector()
-    try:
-        predictor = dlib.shape_predictor(
-            FACE_LANDMARK_SHAPE_DETECTOR_FILENAME)
-    except Exception:
-        raise GRPCException(grpc.StatusCode.FAILED_PRECONDITION,
-                            "Facial landmark points file cann't be found. "
-                            "Download 'shape_predictor_68_face_landmarks.dat'")
-
-    faces = detector(img_gray)
-    if len(faces) == 0:
-        raise GRPCException(grpc.StatusCode.FAILED_PRECONDITION,
-                            'No face could be detected from {} image input.'.format(arg_img_type))
-
-    faces_landmark_points = []
-    for face in faces:
-        landmarks = predictor(img_gray, face)
-        landmark_points = shape_to_np_array(landmarks)
-        faces_landmark_points.append(landmark_points)
-
-    if largest_only:
-        faces_landmark_points = choose_largest_face(faces_landmark_points)
-    elif len(faces_landmark_points) > 1:
-        faces_landmark_points = fix_landmark_overlap(faces_landmark_points)
-
-    return faces_landmark_points
-
-
-def rectContains(rect, point):
-    """Check if a point is inside a rectangle.
-
-    Parameters
-    ----------
-    rect : tuple
-        Points of the rectangle edges.
-    point : tuple
-        List of points.
-
-    Returns
-    -------
-    bool
-        Return true if the points are inside rectangle else return false.
-
-    """
-    if point[0] < rect[0]:
-        return False
-    elif point[1] < rect[1]:
-        return False
-    elif point[0] > rect[0] + rect[2]:
-        return False
-    elif point[1] > rect[1] + rect[3]:
-        return False
-    return True
-
-
-def is_overlap(Rect1, Rect2):
-    """Check if two rectangle are overlapped.
-
-    Parameters
-    ----------
-    Rect1 : tuple
-        Points of the rectangle1 edges.
-    Rect2 : tuple
-        Points of the rectangle2 edges.
-
-    Returns
-    -------
-    bool
-        Return true is overlap else return false.
-
-    """
-    if rectContains(Rect1, Rect2) or rectContains(Rect2, Rect1):
-        return True
-    else:
-        return False
-
-
-def fix_landmark_overlap(faces_landmark_points):
-    """Disregared the overlapped faces(one of them).
-
-    Parameters
-    ----------
-    faces_landmark_points : list
-        Landmark points of each faces.
-
-    Returns
-    -------
-    bool
-        return the non overlapped faces landmark points.
-
-    """
-    none_overlap_faces_landmark_points = []
-    faces = len(faces_landmark_points)
-    overlapped_faces = []  # store the overlapped faces
-    for i in range(faces):
-        for j in range(faces):
-            # check if face[i] and face[j] are the same face and are not overlapped with any other faces
-            if (i == j) and (j not in overlapped_faces):
-                none_overlap_faces_landmark_points.append(
-                    faces_landmark_points[i])
-            # check if the bounding box are overlapped
-            elif is_overlap(cv2.boundingRect(faces_landmark_points[i]), cv2.boundingRect(faces_landmark_points[j])):
-                overlapped_faces.append(j)
-                continue
-    return none_overlap_faces_landmark_points
-
-
-def choose_largest_face(faces_landmark_points):
-    """
-    Choose largest face from all the faces in a given image
-
-    Args:
-        faces_landmark_points : list of nparrays
-            landmark points of all the faces
-
-    Returns:
-        nparray:
-            landmark points of the largest face
-    """
-    faces_num = len(faces_landmark_points)
-
-    # if only one face return it
-    if faces_num == 1:
-        return faces_landmark_points[0]
-
-    # search for the largest face otherwise
-    largest_size = 0
-    for face_i in range(faces_num):
-        x, y, w, h = cv2.boundingRect(faces_landmark_points[face_i])
-
-        face_size = w * h   # ? getting face size
-        if face_size > largest_size:
-            largest_size = face_size
-            largest_face_index = face_i
-
-    largest_face_landmark_points = faces_landmark_points[largest_face_index]
-
-    return largest_face_landmark_points
-
-
-def find_face_direction(landmark_points):
-    """
-    Find left or right direction of a face.
-
-    Args:
-        landmark_points : nparray
-            Facial lanmark points of a given image
-
-    Returns:
-        direction: str
-            Direction of the face
-    """
-
-    # ? are these points enough
-    pt1 = landmark_points[3]
-    pt2 = landmark_points[34]
-    pt3 = landmark_points[15]
-
-    # ? are these criteria enough
-    face_width = np.linalg.norm(np.subtract(pt3, pt1))
-    left_dist = np.linalg.norm(np.subtract(pt2, pt1)) / face_width
-    right_dist = np.linalg.norm(np.subtract(pt3, pt2)) / face_width
-
-    # ? emprical constant 0.2
-    if left_dist > right_dist + 0.2:
-        direction = "right"
-    elif right_dist > left_dist + 0.2:
-        direction = "left"
-    else:
-        direction = "front"  # ? what happens when front
-
-    return direction
-
-
-def align_face_direction(src_img, src_landmark_points, dst_landmark_points):
-    """
-    Flip src_img based on the alignment of two faces
-
-    Args:
-        src_img : nparray
-            Numpy array of src_img.
-        src_landmark_points : nparray
-            Landmark points of a face from src_img
-        dst_landmark_points : nparray
-            Landmark points of a face from dst_img
-
-    Returns:
-        nparray:
-            The flipped or the original image
-    """
-
-    src_direction = find_face_direction(src_landmark_points)
-    dst_direction = find_face_direction(dst_landmark_points)
-
-    # ? how to align if front face detected
-    if (src_direction == "left" and dst_direction == "right") or (src_direction == "right" and dst_direction == "left"):
-        flipped_src_img = cv2.flip(src_img, flipCode=1)
-        return flipped_src_img
-
-    return src_img
 
 
 def get_convex_hulls(src_face_points, dst_face_points):
@@ -361,7 +92,7 @@ def get_corresponding_delaunays(src_points, dst_points, use_dst=True):
 
     Args:
         src_points : list of nparray
-        dst_points : list of nparray   
+        dst_points : list of nparray
         use_dst : if to use dst_points for triangle calculation
 
     Returns:
@@ -404,51 +135,7 @@ def get_corresponding_delaunays(src_points, dst_points, use_dst=True):
     return src_delaunay_tris, dst_delaunay_tris
 
 
-def extract_face(img, face_points):
-    """
-    Crop image based on face_points to extract face 
-    and transform face points corresponding to the cropped image
-
-    Args:
-        img: cvimage
-        face_points: landmark points of face in img
-
-    Returns:
-        tuple:
-            0: cropped cvimage
-            1: cropped image box in [x,y,w,h] format
-    """
-    x, y, w, h = cv2.boundingRect(face_points)
-
-    face_points[:, 0] -= x
-    face_points[:, 1] -= y
-
-    cropped_img = img[y:y+h, x:x+w]
-
-    return cropped_img, [x, y, w, h]
-
-
-def put_image(big_img, small_img, box):
-    """
-    Puts a small image on a big image at specified box
-
-    Args:
-        big_img: cvimage
-        small_img: cvimage
-        box: where to put image in [x,y,w,h] format
-             w and h must be the same with small_img width and height
-
-    Returns:
-        changed cvimage
-    """
-    x, y, w, h = box
-    assert(h == small_img.shape[0] and w == small_img.shape[1])
-    big_img[y:y+h, x:x+w] = small_img
-
-    return big_img
-
-
-def replace_triangle(src_img, dst_img, src_tri_points, dst_tri_points, DEBUG=False):
+def replace_triangle(src_img, dst_img, src_tri_points, dst_tri_points, DEBUG=True):
     """
     Warp src_tri to dst_tri;then replace dst_tri portion of dst_img by src_tri portion of src_img
     Changes dst_img by replacing the warped triangle
@@ -485,6 +172,7 @@ def replace_triangle(src_img, dst_img, src_tri_points, dst_tri_points, DEBUG=Fal
         ])
         cv2.drawContours(dst_img, [dst_tri_vtxs], 0, (255, 0, 0), 1)
         # cv2.drawContours(dst_img, [rect_vtxs], 0, (0, 0, 255), 1)
+
     for vtx_i in range(3):
         if DEBUG:
             cv2.circle(dst_img, tuple(dst_tri_points[vtx_i]), 2, (255, 0, 0))
@@ -503,6 +191,7 @@ def replace_triangle(src_img, dst_img, src_tri_points, dst_tri_points, DEBUG=Fal
         np.float32(transformed_src_tri), np.float32(transformed_dst_tri))
 
     # ? warping method
+    assert(all(src_img_roi.shape))
     dst_roi_dims = (dst_roi_w, dst_roi_h)
     warped_src_img_roi = cv2.warpAffine(src_img_roi, warpMat, dst_roi_dims, None,
                                         flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
@@ -573,17 +262,17 @@ def apply_seamless_clone(src_img, dst_img, src_points, DEBUG=False):
     dst_points_center = ((round(w / 2), round(h / 2)))
 
     # calculate mask
-    mask = np.zeros(src_img.shape, dtype=dst_img.dtype)
+    mask = np.zeros(src_img.shape, dtype=src_img.dtype)
     cv2.fillConvexPoly(mask, np.int32(src_points), (255, 255, 255))
 
     # ? check MIXED_CLONE mode
-    swappedImage = cv2.seamlessClone(
+    swapped_image = cv2.seamlessClone(
         src_img, dst_img, mask, dst_points_center, cv2.NORMAL_CLONE)
     if DEBUG:
-        cv2.imshow('swap', swappedImage)
+        cv2.imshow('swap', swapped_image)
         cv2.waitKey(0)
 
-    return swappedImage
+    return swapped_image
 
 
 def swap_using_points(src_img, dst_img, src_points, dst_points):
@@ -621,10 +310,23 @@ def swap_using_points(src_img, dst_img, src_points, dst_points):
     return dst_img
 
 
-def swap_a_face(src_img, dst_img, src_face_points, dst_face_points):
+def swap_a_face(src_img, dst_img, src_face_points, dst_face_points, use_scale=True):
     """
     Swap a single face
+    Considers image contains extracted face
     """
+
+    # scale the face images to match before any preprocessing
+    if use_scale:
+        dst_img_h = dst_img.shape[0]
+        dst_img_w = dst_img.shape[1]
+        src_img = cv2.resize(src_img, (dst_img_w, dst_img_h))
+        src_face_points = get_face_landmark_points(
+            src_img, ARG_IMG_SRC, largest_only=True)[0]
+
+    # align src_img face direction if necessary
+    align_src_img_direction(src_img, src_face_points, dst_face_points)
+
     # find the convex hull bounding the landmark points of the images
     src_hulls, dst_hulls = get_convex_hulls(
         src_face_points, dst_face_points)
@@ -635,7 +337,7 @@ def swap_a_face(src_img, dst_img, src_face_points, dst_face_points):
     return swapped_img
 
 
-def faceSwap(src_img, dst_img, mode=LARGEST_FACE_MODE, showImages=False):
+def swap_faces(src_img, dst_img, mode=LARGEST_FACE_MODE, showImages=False):
     """
     Swap a face from src_img to dst_img
 
@@ -659,53 +361,31 @@ def faceSwap(src_img, dst_img, mode=LARGEST_FACE_MODE, showImages=False):
     # save the original dst img
     dst_img_copy = np.copy(dst_img)
 
-    # find landmark points of the images
+    # find landmark points of src
     src_face_points = get_face_landmark_points(
-        src_img, ARG_IMG_SRC, largest_only=True)
+        src_img, ARG_IMG_SRC, largest_only=True)[0]
 
-    dst_faces_points = get_face_landmark_points(dst_img, ARG_IMG_DST)
+    # find landmark points of dst
+    largest_dst_only = True if mode == LARGEST_FACE_MODE else False
+    dst_faces_points = get_face_landmark_points(
+        dst_img, ARG_IMG_DST, largest_only=largest_dst_only)
 
-    # if only one face is gonna be replaced it is ultimately largest_face_mode
-    dst_faces_num = len(dst_faces_points)
-    if dst_faces_num == 1:
-        mode = LARGEST_FACE_MODE
+    src_face_img, _ = extract_face(src_img, src_face_points)
 
-    if mode == ALL_FACE_MODE:
-        for face_i in range(dst_faces_num):
-            dst_face_i_points = dst_faces_points[face_i]
-            dst_face_i, crop_box_i = extract_face(dst_img, dst_face_i_points)
-            src_face_i, _ = extract_face(src_img, src_face_points)
+    for dst_face_points in dst_faces_points:
+        dst_face_img, face_box = extract_face(dst_img, dst_face_points)
 
-            swappedImage = swap_a_face(
-                src_face_i, dst_face_i, src_face_points, dst_face_i_points)
+        swapped_img = swap_a_face(
+            src_face_img, dst_face_img, src_face_points, dst_face_points)
 
-            dst_img_copy = put_image(
-                dst_img_copy, swappedImage, crop_box_i)
-    else:
-        # find landmark points of the largest face in an image
-        large_dst_face_points = choose_largest_face(dst_faces_points)
-        dst_face_i, crop_box_i = extract_face(dst_img, large_dst_face_points)
-
-        # match the direction of the two images
-        src_img = align_face_direction(
-            src_img, src_face_points, large_dst_face_points)
-
-        # recompute lanmark points on the flipped image or new one.
-        # ? don't need to recompute, flip points too
-        all_src_face_points = get_face_landmark_points(src_img, ARG_IMG_SRC)
-        src_face_points = choose_largest_face(all_src_face_points)
-        src_face_i, _ = extract_face(src_img, src_face_points)
-
-        swappedImage = swap_a_face(
-            src_face_i, dst_face_i, src_face_points, large_dst_face_points)
         dst_img_copy = put_image(
-            dst_img_copy, swappedImage, crop_box_i)
+            dst_img_copy, swapped_img, face_box)
 
     if showImages == True:
-        show_images(src_img, dst_img_copy, swappedImage,
+        show_images(src_img, dst_img_copy, swapped_img,
                     showOriginalImages=True)
 
-    return swappedImage
+    return swapped_img
 
 
 def show_images(img1, img2, swappedImage, showOriginalImages=False):
@@ -736,11 +416,19 @@ def show_images(img1, img2, swappedImage, showOriginalImages=False):
 
 
 if __name__ == '__main__':
-    image1 = "faceswap/images/kalise.jpg"
-    image2 = "faceswap/images/black_and_white.jpg"
+    import argparse
+
+    ap = argparse.ArgumentParser()
+    ap.add_argument('-s', '--src_img', default='kalise.jpg')
+    ap.add_argument('-d', '--dst_img', default='black_and_white.jpg')
+    args = ap.parse_args()
+
+    base_folder = 'faceswap/images/'
+    image1 = base_folder + args.src_img
+    image2 = base_folder + args.dst_img
 
     src_img = cv2.imread(image1)
     dst_img = cv2.imread(image2)
 
-    swappedImage = faceSwap(src_img, dst_img, mode="apply_on_all",
-                            showImages=True)
+    swappedImage = swap_faces(src_img, dst_img, mode="apply_on_all",
+                              showImages=True)
