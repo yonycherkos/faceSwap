@@ -18,7 +18,7 @@ class GRPCException(Exception):
         return "GRPC Exception {}: {}".format(self.code, self.message)
 
 
-def extract_face(img, face_points, padding=(0, 0)):
+def extract_image(img, face_points, transform=False, padding=(0, 0)):
     """
     Crop image based on face_points to extract face
     and transform face points corresponding to the cropped image
@@ -26,6 +26,7 @@ def extract_face(img, face_points, padding=(0, 0)):
     Args:
         img: cvimage
         face_points: landmark points of face in img
+        transform: whether to transform face_points to the extracted image coordinates
         padding: x and y padding when extracted
 
     Returns:
@@ -39,8 +40,9 @@ def extract_face(img, face_points, padding=(0, 0)):
     x, y = x - padding_x, y - padding_y
     w, h = w + 2*padding_x, h + 2*padding_y
 
-    face_points[:, 0] -= x
-    face_points[:, 1] -= y
+    if transform:
+        face_points[:, 0] -= x
+        face_points[:, 1] -= y
 
     cropped_img = img[y:y+h, x:x+w]
 

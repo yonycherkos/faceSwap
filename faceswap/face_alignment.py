@@ -4,7 +4,7 @@ import numpy as np
 
 from geometry import line_parameters, perpendicular_line, dist
 from face_detection import get_face_landmark_points, FACIAL_LANDMARKS_68_IDXS
-from utils import ARG_IMG_SRC, extract_face
+from utils import ARG_IMG_SRC, extract_image
 
 
 def find_face_direction(landmark_points):
@@ -158,11 +158,15 @@ def align_half_faces(src_img, dst_img, src_face_points, dst_face_points, DEBUG=T
             dst_img, [dst_right_face.astype('int')], -1, (255, 0, 0))
 
     # extract each half faces
-    src_left_img, src_left_box = extract_face(src_img, src_left_face)
-    src_right_img, src_right_box = extract_face(src_img, src_right_face)
+    src_left_img, src_left_box = extract_image(
+        src_img, src_left_face, transform=True)
+    src_right_img, src_right_box = extract_image(
+        src_img, src_right_face, transform=True)
 
-    dst_left_img, dst_left_box = extract_face(dst_img, dst_left_face)
-    dst_right_img, dst_right_box = extract_face(dst_img, dst_right_face)
+    dst_left_img, dst_left_box = extract_image(
+        dst_img, dst_left_face, transform=True)
+    dst_right_img, dst_right_box = extract_image(
+        dst_img, dst_right_face, transform=True)
 
     # get transform matrix from src to dst half faces
     left_transfom_matrix = cv2.getPerspectiveTransform(
@@ -228,14 +232,12 @@ def get_half_face_proportions(face_points):
     (left_start, left_end) = FACIAL_LANDMARKS_68_IDXS['left_eye']
     (right_start, right_end) = FACIAL_LANDMARKS_68_IDXS['right_eye']
     mid_eye_index = FACIAL_LANDMARKS_68_IDXS['nose_top']
-    (nose_start, nose_end) = FACIAL_LANDMARKS_68_IDXS['nose_bottom']
 
     # get representative points of eyes and its line
     left_eye_points = face_points[left_start: left_end]
     right_eye_points = face_points[right_start: right_end]
     left_eye_center = left_eye_points.mean(axis=0).astype('int')
     right_eye_center = right_eye_points.mean(axis=0).astype('int')
-    eyes_line = line_parameters(left_eye_center, right_eye_center)
 
     # get representative middle point between eyes
     mid_eyes_point = face_points[mid_eye_index]
@@ -278,8 +280,31 @@ def align_src_img_direction(src_img, src_face_points, dst_face_points):
         src_img = cv2.flip(src_img, flipCode=1)
         src_face_points = get_face_landmark_points(
             src_img, ARG_IMG_SRC, largest_only=True)[0]
+        # ! avoids negative landmark points
+        # ! exist only because of finding face on extracted face image
+        # ! approximate negative to zero
+        src_face_points[src_face_points < 0] = 0
 
     return src_img, src_face_points
+
+
+def flip_points(img, points):
+    """
+    Flip points on img based on vertical half line of img
+    """
+    # get half width value of img
+    w = img.shape[1]
+    half_w = round(w/2)
+
+    # set up half width points
+    half_points = np.full(
+        (points.shape[0]), half_w, dtype=points.dtype)
+
+    # compute the flip in x points using half width points
+    points[:, 0] = half_points - \
+        (points[:, 0] - half_points)
+
+    return points
 
 
 def align_horizontal(src_img, src_face_points, dst_face_points):
@@ -331,7 +356,7 @@ def align_horizontal(src_img, src_face_points, dst_face_points):
     angle = math.degrees(math.acos(inner_product/(src_norm*dst_norm)))
 
     # compute rotation center which is middle point between eyes
-    #! not right point actually
+    # ! not right point actually(need to fix this)
     rotation_center = (
         (src_left_eye_center[0] + src_right_eye_center[0]) // 2,
         (src_right_eye_center[1] + src_right_eye_center[1]) // 2

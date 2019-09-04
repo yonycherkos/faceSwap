@@ -5,7 +5,7 @@ from PIL import Image
 from face_detection import get_face_landmark_points
 from face_alignment import align_src_img_direction
 from utils import LARGEST_FACE_MODE, ARG_IMG_SRC, ARG_IMG_DST, \
-    extract_face, put_image
+    extract_image, put_image
 
 
 def is_black_and_white(img):
@@ -96,9 +96,8 @@ def get_corresponding_delaunays(src_points, dst_points, use_dst=True):
         use_dst : if to use dst_points for triangle calculation
 
     Returns:
-        tuple:
-            0: src delauney triangles list
-            1: dst delauney triangles list
+        0: src delauney triangles list
+        1: dst delauney triangles list
     """
     # ? should we calculate all delanuay triangles
     # which points use calculating delanauy triangles
@@ -277,23 +276,16 @@ def apply_seamless_clone(src_img, dst_img, src_points, DEBUG=False):
 
 def swap_using_points(src_img, dst_img, src_points, dst_points):
     """
-    This function contain code tha will be use for both mode. inorder to avoid repetition
+    Swaps face using points
 
     Args:
         src_img : nparray
-            Readed value of source image
         dst_img : nparray
-            Readed value of dst_img
-        processed_dst_img : nparray
-            Copy of dst image that may be changed by previous swaps
-        src_face_points : nparray
-            List of facial landmark poinst of single face from source image
-        dst_face_points : nparray
-            List of facial landmark poinst of single face from destination image
+        src_points : points on src_img representing face
+        dst_points : points on dst_img representing face
 
     Returns:
-        numpy.ndarray
-            The swapped image
+        cvimage: swapped face image
     """
 
     # calculate the delauney triangulations
@@ -310,22 +302,41 @@ def swap_using_points(src_img, dst_img, src_points, dst_points):
     return dst_img
 
 
-def swap_a_face(src_img, dst_img, src_face_points, dst_face_points, use_scale=True):
+def swap_a_face(src_img, dst_img, src_face_points, dst_face_points, use_scale=False):
     """
     Swap a single face
     Considers image contains extracted face
+
+    Args:
+        src_img: cvimage
+        dst_img: cvimage
+        src_face_points: face landmark points for src_img
+        dst_face_points: face landmark points for dst_img
+        use_scale: whether to resize src_img to dst_img
+
+    Returns:
+        cvimage: swapped face from src_img to dst_img
     """
 
     # scale the face images to match before any preprocessing
+    # ! src_face_points could get into negative
+    # ! this should be fixed to be used
     if use_scale:
         dst_img_h = dst_img.shape[0]
         dst_img_w = dst_img.shape[1]
         src_img = cv2.resize(src_img, (dst_img_w, dst_img_h))
+        # ! src_face_points could get into negative
+        # ! this should be fixed to be used
         src_face_points = get_face_landmark_points(
             src_img, ARG_IMG_SRC, largest_only=True)[0]
+        # ! avoids negative landmark points
+        # ! exist only because of finding face on extracted face image
+        # ! approximate negative to zero
+        src_face_points[src_face_points < 0] = 0
 
     # align src_img face direction if necessary
-    align_src_img_direction(src_img, src_face_points, dst_face_points)
+    src_img, src_face_points = align_src_img_direction(
+        src_img, src_face_points, dst_face_points)
 
     # find the convex hull bounding the landmark points of the images
     src_hulls, dst_hulls = get_convex_hulls(
@@ -370,10 +381,11 @@ def swap_faces(src_img, dst_img, mode=LARGEST_FACE_MODE, showImages=False):
     dst_faces_points = get_face_landmark_points(
         dst_img, ARG_IMG_DST, largest_only=largest_dst_only)
 
-    src_face_img, _ = extract_face(src_img, src_face_points)
+    src_face_img, _ = extract_image(src_img, src_face_points, transform=True)
 
     for dst_face_points in dst_faces_points:
-        dst_face_img, face_box = extract_face(dst_img, dst_face_points)
+        dst_face_img, face_box = extract_image(
+            dst_img, dst_face_points, transform=True)
 
         swapped_img = swap_a_face(
             src_face_img, dst_face_img, src_face_points, dst_face_points)
