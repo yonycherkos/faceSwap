@@ -35,7 +35,7 @@ class FaceSwapServicer(image_swap_pb2_grpc.FaceSwapServicer):
         except GRPCException as rpc_exception:
             # custom Exception to respond for application specific errors
             print('Custom Exception: ', repr(rpc_exception))
-            
+
             context.set_code(rpc_exception.code)
             context.set_details(rpc_exception.message)
             return image_swap_pb2.ImageFileOut()
@@ -61,7 +61,12 @@ class Server():
         self.server = None
 
     def start_server(self):
-        self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+        hundred_MB = (1024 ** 2) * 100   # max grpc message size
+        self.server = grpc.server(
+            futures.ThreadPoolExecutor(max_workers=10),
+            options=[
+            ('grpc.max_receive_message_length', hundred_MB)
+        ])
         image_swap_pb2_grpc.add_FaceSwapServicer_to_server(
             FaceSwapServicer(), self.server)
         print('Starting server. Listening on port 50051...')
