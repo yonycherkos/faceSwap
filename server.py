@@ -6,8 +6,10 @@ import image_swap_pb2
 import image_swap_pb2_grpc
 
 from base64_conversion import np_img_from_base64, base64_from_np_img
-from faceswap.utils import GRPCException
-from faceswap.face_swapping import swap_faces
+
+# get needed objects from faceswap package
+# ! tricky importing here, beware when changing
+from faceswap import GRPCException, swap_faces
 
 
 class FaceSwapServicer(image_swap_pb2_grpc.FaceSwapServicer):
@@ -32,6 +34,8 @@ class FaceSwapServicer(image_swap_pb2_grpc.FaceSwapServicer):
             result = swap_faces(inputImage, memeImage, mode=mode)
         except GRPCException as rpc_exception:
             # custom Exception to respond for application specific errors
+            print('Custom Exception: ', repr(rpc_exception))
+            
             context.set_code(rpc_exception.code)
             context.set_details(rpc_exception.message)
             return image_swap_pb2.ImageFileOut()
@@ -60,7 +64,7 @@ class Server():
         self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
         image_swap_pb2_grpc.add_FaceSwapServicer_to_server(
             FaceSwapServicer(), self.server)
-        print('Starting server. Listening on port 50051.')
+        print('Starting server. Listening on port 50051...')
         self.server.add_insecure_port(self.port)
         self.server.start()
 

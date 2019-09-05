@@ -134,7 +134,7 @@ def get_corresponding_delaunays(src_points, dst_points, use_dst=True):
     return src_delaunay_tris, dst_delaunay_tris
 
 
-def replace_triangle(src_img, dst_img, src_tri_points, dst_tri_points, DEBUG=True):
+def replace_triangle(src_img, dst_img, src_tri_points, dst_tri_points, DEBUG=False):
     """
     Warp src_tri to dst_tri;then replace dst_tri portion of dst_img by src_tri portion of src_img
     Changes dst_img by replacing the warped triangle
@@ -397,7 +397,7 @@ def swap_faces(src_img, dst_img, mode=LARGEST_FACE_MODE, showImages=False):
         show_images(src_img, dst_img_copy, swapped_img,
                     showOriginalImages=True)
 
-    return swapped_img
+    return dst_img_copy
 
 
 def show_images(img1, img2, swappedImage, showOriginalImages=False):
